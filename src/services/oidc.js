@@ -97,7 +97,7 @@ export function buildAuthorizeUrl(config, params = {}) {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: config.scope || 'openid profile email roles',
+    scope: config.scope || 'openid',
     code_challenge: params.codeChallenge,
     code_challenge_method: 'S256',
     state: params.state,
@@ -202,12 +202,15 @@ export async function directGrantLogin(config, username, password, totp = null) 
   const cleanBase = config.baseUrl.replace(/\/+$/, '');
   const endpoint = `${cleanBase}/realms/${encodeURIComponent(config.realm)}/protocol/openid-connect/token`;
 
+  // Ensure direct access grant uses valid OpenID scope without unsupported scopes like 'roles'
+  const safeScope = (config.scope && !config.scope.includes('roles')) ? config.scope : 'openid';
+
   const body = new URLSearchParams({
     grant_type: 'password',
     client_id: config.clientId,
     username,
     password,
-    scope: config.scope || 'openid',
+    scope: safeScope,
   });
 
   if (totp) {

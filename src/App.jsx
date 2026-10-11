@@ -53,8 +53,11 @@ export default function App() {
         if (parsed.clientId === 'react-app') {
           parsed.clientId = 'callrecording';
         }
-        if (!parsed.scope || parsed.scope === 'openid') {
-          parsed.scope = 'openid profile email roles';
+        if (parsed.realm === 'sfa-pfa-demo') {
+          parsed.realm = 'idp';
+        }
+        if (!parsed.scope || parsed.scope.includes('roles') || parsed.scope === 'openid profile email roles') {
+          parsed.scope = 'openid';
         }
         return parsed;
       } catch {
@@ -63,10 +66,10 @@ export default function App() {
     }
     return {
       baseUrl: 'http://localhost:8080',
-      realm: 'sfa-pfa-demo',
+      realm: 'idp',
       clientId: 'callrecording',
       redirectUri: `${window.location.origin}/auth/callback`,
-      scope: 'openid profile email roles',
+      scope: 'openid',
       sfaAcrValue: 'loa-1',
       pfaAcrValue: 'loa-2',
     };
@@ -369,7 +372,7 @@ export default function App() {
     const clientRoles = accessPayload.resource_access?.[config.clientId]?.roles || [];
     const realmRoles = accessPayload.realm_access?.roles || [];
     const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
-      (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
+      (r) => !['default-roles-idp', 'default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
     );
 
     let primaryRole = storedRole;

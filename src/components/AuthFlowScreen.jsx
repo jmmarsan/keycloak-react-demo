@@ -227,7 +227,7 @@ export const AuthFlowScreen = ({
       const clientRoles = accessPayload.resource_access?.[config.clientId]?.roles || [];
       const realmRoles = accessPayload.realm_access?.roles || [];
       const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
-        (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
+        (r) => !['default-roles-idp', 'default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
       );
       let primaryRole = 'user';
       if (allRoles.includes('admin') || directUsername.includes('.admin.') || directUsername.endsWith('.admin')) {
@@ -512,7 +512,7 @@ export const AuthFlowScreen = ({
             OIDC &amp; Keycloak Parameters
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -521,7 +521,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, baseUrl: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -530,7 +530,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, realm: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -539,7 +539,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, clientId: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -548,7 +548,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, scope: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -557,7 +557,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, sfaAcrValue: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -566,7 +566,7 @@ export const AuthFlowScreen = ({
                 onChange={(e) => onUpdateConfig({ ...config, pfaAcrValue: e.target.value })}
               />
             </Grid>
-            <Grid item xs={12} sm={12} md={6}>
+            <Grid size={{ xs: 12, sm: 12, md: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -582,7 +582,7 @@ export const AuthFlowScreen = ({
       {/* 3 Main Testing Cards (SFA vs PFA Passwordless vs PFA Step-Up) */}
       <Grid container spacing={3}>
         {/* CARD 1: SFA */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card
             variant="outlined"
             sx={{
@@ -710,7 +710,7 @@ export const AuthFlowScreen = ({
         </Grid>
 
         {/* CARD 2: PFA Step-Up MFA */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card
             variant="outlined"
             sx={{
@@ -838,7 +838,7 @@ export const AuthFlowScreen = ({
         </Grid>
 
         {/* CARD 3: PFA Passwordless Passkey / WebAuthn */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Card
             variant="outlined"
             sx={{
@@ -1045,7 +1045,7 @@ export const AuthFlowScreen = ({
 
           <Grid container spacing={2}>
             {/* Combo 1: Role */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
                 <InputLabel id="direct-role-combo-label">1. Client Role</InputLabel>
                 <Select
@@ -1080,7 +1080,7 @@ export const AuthFlowScreen = ({
             </Grid>
 
             {/* Combo 2: User Factor Instance */}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth size="small">
                 <InputLabel id="direct-user-combo-label">2. User Factor Instance</InputLabel>
                 <Select
@@ -1188,8 +1188,8 @@ export const AuthFlowScreen = ({
         </Paper>
 
         <form onSubmit={handleDirectGrant}>
-          <Grid container spacing={2} alignItems="flex-end">
-            <Grid item xs={12} sm={3}>
+          <Grid container spacing={2} sx={{ alignItems: 'flex-end' }}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -1199,7 +1199,7 @@ export const AuthFlowScreen = ({
                 helperText={`Target Client: ${config.clientId}`}
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -1210,7 +1210,7 @@ export const AuthFlowScreen = ({
                 helperText="Default: password123"
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -1227,7 +1227,7 @@ export const AuthFlowScreen = ({
                 }
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid size={{ xs: 12, sm: 3 }}>
               <Button
                 fullWidth
                 variant="contained"

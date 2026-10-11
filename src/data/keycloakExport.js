@@ -1,7 +1,7 @@
 /**
  * Pre-configured Keycloak Realm JSON export for instant 1-click import.
  * Contains:
- * - 2 Clients: "callrecording" and "faxmail" (plus "react-app" legacy alias)
+ * - 2 Clients: "callrecording" and "faxmail"
  * - 3 Roles per client: "user", "tenant", "admin"
  * - 18 Testing Users (2 apps x 3 roles x 3 factor instances = 18 users) with suffixes .sfa, .totp, .fido2 and default password "password123"
  * - High Assurance PFA demo accounts: "sam.webauthn" (WebAuthn / Passkey) and "morgan.pfa" (TOTP Step-Up)
@@ -119,9 +119,9 @@ const buildClientDefinition = (clientId, name, description) => ({
 });
 
 export const KEYCLOAK_DEMO_REALM = {
-  id: 'sfa-pfa-demo',
-  realm: 'sfa-pfa-demo',
-  displayName: 'SFA & PFA Demo Realm',
+  id: 'idp',
+  realm: 'idp',
+  displayName: 'IDP Realm',
   enabled: true,
   verifyEmail: false,
   sslRequired: 'external',
@@ -186,20 +186,6 @@ export const KEYCLOAK_DEMO_REALM = {
           description: 'Fax Mail Administrator',
         },
       ],
-      'react-app': [
-        {
-          name: 'user',
-          description: 'Standard User',
-        },
-        {
-          name: 'tenant',
-          description: 'Tenant User',
-        },
-        {
-          name: 'admin',
-          description: 'Administrator',
-        },
-      ],
     },
   },
   clients: [
@@ -212,11 +198,6 @@ export const KEYCLOAK_DEMO_REALM = {
       'faxmail',
       'Fax Mail Client',
       'Fax Mail application client with PKCE S256 and Direct Access Grants'
-    ),
-    buildClientDefinition(
-      'react-app',
-      'React SFA & PFA Client',
-      'General SPA client with PKCE S256 and Direct Access Grants'
     ),
   ],
   clientScopes: [
@@ -267,5 +248,5 @@ export const DOCKER_COMPOSE_YML = `services:
     ports:
       - "8080:8080"
     volumes:
-      - ./sfa-pfa-demo-realm.json:/opt/keycloak/data/import/realm.json:ro
+      - ./idp-realm.json:/opt/keycloak/data/import/realm.json:ro
 `;
