@@ -4,26 +4,18 @@ import {
   ShieldCheck, 
   Fingerprint, 
   Send, 
-  Sparkles, 
   Settings2, 
   Code2, 
   ExternalLink 
 } from 'lucide-react';
-import { generatePkce, buildAuthorizeUrl, directGrantLogin, parseJwt } from '../services/oidc';
-import { 
-  mockSfaLogin, 
-  mockPfaPasswordlessLogin, 
-  mockPfaMfaLogin 
-} from '../services/mockKeycloak';
+import { generatePkce, buildAuthorizeUrl, directGrantLogin, parseJwt } from '../services/oidc.js';
 
 export const AuthFlowScreen = ({
-  authMode,
   config,
   onUpdateConfig,
   session,
   onSessionCreated,
   onLogAudit,
-  onRequestInteractiveModal,
 }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [directUsername, setDirectUsername] = useState('alex.sfa');
@@ -56,7 +48,7 @@ export const AuthFlowScreen = ({
     refreshPkcePreview();
   }, []);
 
-  // Handlers for Live Keycloak OIDC PKCE redirect
+  // Handlers for Local Keycloak OIDC PKCE redirect / popup
   const launchLiveOidcFlow = async (options) => {
     const { codeVerifier, codeChallenge } = await generatePkce();
     const state = Math.random().toString(36).substring(2, 15);
@@ -80,7 +72,7 @@ export const AuthFlowScreen = ({
       timestamp: new Date().toLocaleTimeString(),
       type: 'AUTH_START',
       title: `Initiated ${options.flowLabel} (PKCE)`,
-      detail: `Opening authorization URL with acr_values="${options.acrValue || 'none'}"`,
+      detail: `Opening Keycloak authorization URL with acr_values="${options.acrValue || 'none'}"`,
       status: 'info',
       payload: { authUrl, codeChallenge, state },
     });
@@ -101,86 +93,17 @@ export const AuthFlowScreen = ({
     }
   };
 
-  // Handlers for Simulator Flows
-  const handleSimulatorSfa = () => {
-    onRequestInteractiveModal('sfa', () => {
-      const { session } = mockSfaLogin('alex.sfa');
-      onSessionCreated(session, 'SFA Login');
-      onLogAudit({
-        id: 'log-' + Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'TOKEN_EXCHANGED',
-        title: 'SFA Authentication Succeeded',
-        detail: 'User authenticated with single credential (password). AMR: ["pwd"], ACR: "loa-1"',
-        status: 'success',
-        payload: session.decodedIdToken?.payload,
-      });
-    });
-  };
-
-  const handleSimulatorPfaPasswordless = () => {
-    onRequestInteractiveModal('webauthn', () => {
-      const { session } = mockPfaPasswordlessLogin();
-      onSessionCreated(session, 'PFA Passwordless (WebAuthn)');
-      onLogAudit({
-        id: 'log-' + Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'TOKEN_EXCHANGED',
-        title: 'PFA Passwordless Authentication Succeeded',
-        detail: 'FIDO2 / WebAuthn passkey assertion verified. AMR: ["webauthn"], ACR: "pfa"',
-        status: 'success',
-        payload: session.decodedIdToken?.payload,
-      });
-    });
-  };
-
-  const handleSimulatorPfaMfa = () => {
-    onRequestInteractiveModal('otp', () => {
-      const { session } = mockPfaMfaLogin();
-      onSessionCreated(session, 'PFA Step-Up MFA (TOTP)');
-      onLogAudit({
-        id: 'log-' + Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'TOKEN_EXCHANGED',
-        title: 'PFA Step-Up MFA Authentication Succeeded',
-        detail: 'Primary password + TOTP authenticator verified. AMR: ["pwd", "otp"], ACR: "loa-2"',
-        status: 'success',
-        payload: session.decodedIdToken?.payload,
-      });
-    });
-  };
-
-  // Direct Access Grants (ROPC)
+  // Direct Access Grants (ROPC) to local Keycloak
   const handleDirectGrant = async (e) => {
     e.preventDefault();
     setIsDirectLoading(true);
     setDirectError(null);
 
     try {
-      if (authMode === 'simulator') {
-        setTimeout(() => {
-          setIsDirectLoading(false);
-          const hasOtp = Boolean(directOtp.trim());
-          const { session } = hasOtp ? mockPfaMfaLogin() : mockSfaLogin(directUsername);
-          onSessionCreated(session, hasOtp ? 'Direct PFA (with OTP)' : 'Direct SFA');
-          onLogAudit({
-            id: 'log-' + Date.now(),
-            timestamp: new Date().toLocaleTimeString(),
-            type: 'TOKEN_EXCHANGED',
-            title: `Direct Grant ${hasOtp ? 'PFA' : 'SFA'} Success`,
-            detail: `Direct password grant completed for ${directUsername}`,
-            status: 'success',
-            payload: session.decodedAccessToken?.payload,
-          });
-        }, 500);
-        return;
-      }
-
-      // Live Keycloak Direct Grant
       const tokens = await directGrantLogin(config, directUsername, directPassword, directOtp || undefined);
       const decodedAccess = parseJwt(tokens.access_token);
       const decodedId = tokens.id_token ? parseJwt(tokens.id_token) : undefined;
-      const acr = (decodedAccess?.payload.acr) || (directOtp ? 'loa-2' : 'loa-1');
+      const acr = (decodedAccess?.payload?.acr) || (directOtp ? 'loa-2' : 'loa-1');
       const isPfa = String(acr).includes('2') || String(acr).includes('pfa') || Boolean(directOtp);
 
       const newSession = {
@@ -190,11 +113,11 @@ export const AuthFlowScreen = ({
           ? 'Protected Factor (Direct Grant with OTP)'
           : 'Single-Factor (Direct Grant Username/Password)',
         user: {
-          id: decodedAccess?.payload.sub || 'user-id',
-          username: decodedAccess?.payload.preferred_username || directUsername,
-          email: decodedAccess?.payload.email || `${directUsername}@example.com`,
-          name: decodedAccess?.payload.name || directUsername,
-          roles: decodedAccess?.payload.realm_access?.roles || ['user'],
+          id: decodedAccess?.payload?.sub || 'user-id',
+          username: decodedAccess?.payload?.preferred_username || directUsername,
+          email: decodedAccess?.payload?.email || `${directUsername}@example.com`,
+          name: decodedAccess?.payload?.name || directUsername,
+          roles: decodedAccess?.payload?.realm_access?.roles || ['user'],
         },
         tokens,
         decodedAccessToken: decodedAccess,
@@ -212,8 +135,8 @@ export const AuthFlowScreen = ({
         id: 'log-' + Date.now(),
         timestamp: new Date().toLocaleTimeString(),
         type: 'TOKEN_EXCHANGED',
-        title: `Live Direct Grant Success (${newSession.factorLevel.toUpperCase()})`,
-        detail: `Tokens obtained directly via /protocol/openid-connect/token endpoint`,
+        title: `Local Direct Grant Success (${newSession.factorLevel.toUpperCase()})`,
+        detail: `Tokens obtained directly from ${config.baseUrl} token endpoint`,
         status: 'success',
         payload: tokens,
       });
@@ -242,8 +165,8 @@ export const AuthFlowScreen = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-semibold text-white">Active OIDC Target:</span>
-              <span className="font-mono text-indigo-300">
+              <span className="font-semibold text-white">Target Keycloak:</span>
+              <span className="font-mono text-cyan-300">
                 {config.baseUrl}/realms/{config.realm}
               </span>
               <span className="text-slate-500">|</span>
@@ -251,7 +174,7 @@ export const AuthFlowScreen = ({
               <span className="font-mono text-slate-200">{config.clientId}</span>
             </div>
             <p className="text-slate-400 text-[11px] mt-0.5">
-              Flows configured for SFA (<code className="text-amber-400">{config.sfaAcrValue}</code>) and PFA (
+              Testing SFA (<code className="text-amber-400">{config.sfaAcrValue}</code>) and PFA (
               <code className="text-emerald-400">{config.pfaAcrValue}</code>)
             </p>
           </div>
@@ -262,7 +185,7 @@ export const AuthFlowScreen = ({
           onClick={() => setShowConfig(!showConfig)}
           className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors self-start md:self-center"
         >
-          {showConfig ? 'Hide Config' : 'Edit OIDC Endpoints'}
+          {showConfig ? 'Hide Config' : 'Edit Endpoints'}
         </button>
       </div>
 
@@ -356,50 +279,39 @@ export const AuthFlowScreen = ({
               Single-Factor (SFA)
             </h3>
             <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-              Standard primary factor login. User verifies identity with username and password.
+              Standard primary factor login on Keycloak. User authenticates with Username and Password form.
             </p>
 
             <div className="my-4 p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-400">
-                <span>Auth Factor:</span>
-                <span className="font-medium text-slate-200">Password Only</span>
+                <span>Auth Flow:</span>
+                <span className="font-medium text-slate-200">Username/Password</span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>AMR Claim:</span>
+                <span>Expected AMR:</span>
                 <code className="text-amber-400 font-mono">["pwd"]</code>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>ACR Claim:</span>
+                <span>Expected ACR:</span>
                 <code className="text-amber-400 font-mono">"{config.sfaAcrValue}"</code>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80">
-            {authMode === 'live' ? (
-              <button
-                type="button"
-                onClick={() =>
-                  launchLiveOidcFlow({
-                    acrValue: config.sfaAcrValue,
-                    flowLabel: 'SFA Standard Login',
-                  })
-                }
-                className="w-full py-2.5 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
-              >
-                <span>Launch SFA OIDC Flow (PKCE)</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSimulatorSfa}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-amber-600/20"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Simulate SFA Login</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                launchLiveOidcFlow({
+                  acrValue: config.sfaAcrValue,
+                  flowLabel: 'SFA Standard Login',
+                })
+              }
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-amber-600/20"
+            >
+              <span>Launch SFA Login (PKCE)</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -426,45 +338,34 @@ export const AuthFlowScreen = ({
 
             <div className="my-4 p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-400">
-                <span>Auth Factor:</span>
-                <span className="font-medium text-slate-200">FIDO2 Passkey</span>
+                <span>Auth Flow:</span>
+                <span className="font-medium text-slate-200">WebAuthn Passwordless</span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>AMR Claim:</span>
+                <span>Expected AMR:</span>
                 <code className="text-cyan-400 font-mono">["webauthn"]</code>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>ACR Claim:</span>
+                <span>Expected ACR:</span>
                 <code className="text-cyan-400 font-mono">"pfa"</code>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80">
-            {authMode === 'live' ? (
-              <button
-                type="button"
-                onClick={() =>
-                  launchLiveOidcFlow({
-                    acrValue: 'pfa',
-                    flowLabel: 'PFA Passwordless WebAuthn',
-                  })
-                }
-                className="w-full py-2.5 px-4 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-200 font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
-              >
-                <span>Launch WebAuthn Flow (PKCE)</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSimulatorPfaPasswordless}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-cyan-600/20"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Simulate WebAuthn Passkey</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                launchLiveOidcFlow({
+                  acrValue: 'pfa',
+                  flowLabel: 'PFA Passwordless WebAuthn',
+                })
+              }
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-cyan-600/20"
+            >
+              <span>Launch WebAuthn Flow (PKCE)</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
 
@@ -491,45 +392,34 @@ export const AuthFlowScreen = ({
 
             <div className="my-4 p-3 rounded-xl bg-slate-950 border border-slate-800/80 space-y-2 text-xs">
               <div className="flex justify-between items-center text-slate-400">
-                <span>Auth Factor:</span>
+                <span>Auth Flow:</span>
                 <span className="font-medium text-slate-200">Password + TOTP</span>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>AMR Claim:</span>
+                <span>Expected AMR:</span>
                 <code className="text-emerald-400 font-mono">["pwd", "otp"]</code>
               </div>
               <div className="flex justify-between items-center text-slate-400">
-                <span>ACR Claim:</span>
+                <span>Expected ACR:</span>
                 <code className="text-emerald-400 font-mono">"{config.pfaAcrValue}"</code>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-slate-800/80">
-            {authMode === 'live' ? (
-              <button
-                type="button"
-                onClick={() =>
-                  launchLiveOidcFlow({
-                    acrValue: config.pfaAcrValue,
-                    flowLabel: 'PFA Step-Up MFA (LoA 2)',
-                  })
-                }
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-200 font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-sm"
-              >
-                <span>Launch Step-Up Flow (PKCE)</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSimulatorPfaMfa}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-emerald-600/20"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Simulate Step-Up MFA</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                launchLiveOidcFlow({
+                  acrValue: config.pfaAcrValue,
+                  flowLabel: 'PFA Step-Up MFA (LoA 2)',
+                })
+              }
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs flex items-center justify-center space-x-2 transition-all shadow-lg shadow-emerald-600/20"
+            >
+              <span>Launch Step-Up Flow (PKCE)</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -547,7 +437,7 @@ export const AuthFlowScreen = ({
             </p>
           </div>
           <span className="text-[11px] px-2.5 py-1 rounded bg-slate-800 text-slate-300 font-mono">
-            POST /protocol/openid-connect/token
+            POST {config.baseUrl}/realms/{config.realm}/protocol/openid-connect/token
           </span>
         </div>
 
@@ -591,7 +481,7 @@ export const AuthFlowScreen = ({
               disabled={isDirectLoading}
               className="w-full py-2 px-4 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors disabled:opacity-50"
             >
-              {isDirectLoading ? 'Authenticating...' : 'Send Direct Token Request'}
+              {isDirectLoading ? 'Authenticating with Keycloak...' : 'Send Direct Token Request'}
             </button>
           </div>
         </form>
@@ -608,7 +498,7 @@ export const AuthFlowScreen = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm font-bold text-white">
             <Code2 className="w-4 h-4 text-cyan-400" />
-            <span>PKCE Parameters & Authorize Request Preview</span>
+            <span>PKCE Parameters &amp; Authorize Request Preview</span>
           </div>
           <button
             type="button"

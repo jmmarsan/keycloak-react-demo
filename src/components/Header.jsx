@@ -4,18 +4,16 @@ import {
   ShieldCheck, 
   ShieldAlert, 
   Server, 
-  Sparkles, 
   LogOut, 
   BookOpen 
 } from 'lucide-react';
 
 export const Header = ({
-  authMode,
-  onAuthModeChange,
   session,
   onLogout,
   activeTab,
   onSelectTab,
+  config,
 }) => {
   return (
     <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40 text-slate-100">
@@ -28,45 +26,22 @@ export const Header = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg text-white tracking-tight">Keycloak SFA & PFA</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium">
-                  OIDC / PKCE
+                <span className="font-bold text-lg text-white tracking-tight">Keycloak SFA &amp; PFA</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium">
+                  Local IdP
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Identity Provider Testing & LoA Verification</p>
+              <p className="text-xs text-slate-400">Direct OIDC &amp; PKCE against Local Keycloak</p>
             </div>
           </div>
 
-          {/* Mode Switcher & Status */}
+          {/* Local Target Badge & Status */}
           <div className="flex items-center space-x-3">
-            {/* Mode Toggle */}
-            <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => onAuthModeChange('simulator')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all ${
-                  authMode === 'simulator'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Built-in simulator: test SFA, PFA and Step-up instantly in the browser"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>IdP Simulator</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onAuthModeChange('live')}
-                className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md font-medium transition-all ${
-                  authMode === 'live'
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title="Connect to real Keycloak running locally on http://localhost:8080"
-              >
-                <Server className="w-3.5 h-3.5" />
-                <span>Local Keycloak</span>
-              </button>
+            {/* Target Server Badge */}
+            <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
+              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <Server className="w-3.5 h-3.5 text-cyan-400" />
+              <span className="text-slate-300 font-mono text-[11px]">{config?.baseUrl || 'http://localhost:8080'}</span>
             </div>
 
             {/* Current Factor Badge */}

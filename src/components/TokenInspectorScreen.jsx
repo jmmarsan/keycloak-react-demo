@@ -218,12 +218,12 @@ export const TokenInspectorScreen = ({
             <Key className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-slate-400 block text-[11px]">Auth Mode & Issuer</span>
+            <span className="text-slate-400 block text-[11px]">Identity Provider & Issuer</span>
             <span className="font-medium text-slate-200">
-              {session.authMode === 'live' ? 'Local Keycloak (Port 8080)' : 'In-Browser Simulator'}
+              Local Keycloak
             </span>
             <span className="font-mono text-slate-400 text-[11px] block truncate max-w-[200px]">
-              {session.decodedAccessToken?.payload.iss || 'http://localhost:8080'}
+              {session.decodedAccessToken?.payload?.iss || 'http://localhost:8080'}
             </span>
           </div>
         </div>

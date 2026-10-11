@@ -3,12 +3,10 @@ import {
   exchangeCodeForTokens, 
   parseJwt, 
   refreshTokens, 
-  buildLogoutUrl 
+  buildLogoutUrl,
+  generatePkce,
+  buildAuthorizeUrl 
 } from './services/oidc.js';
-import { 
-  mockSfaLogin, 
-  elevateSfaToPfa 
-} from './services/mockKeycloak.js';
 import { Header } from './components/Header.jsx';
 import { Navigation } from './components/Navigation.jsx';
 import { AuthFlowScreen } from './components/AuthFlowScreen.jsx';
@@ -17,10 +15,9 @@ import { ProtectedResourcesScreen } from './components/ProtectedResourcesScreen.
 import { SetupGuideView } from './components/SetupGuideView.jsx';
 import { AuditLogScreen } from './components/AuditLogScreen.jsx';
 import { KeycloakHealthBanner } from './components/KeycloakHealthBanner.jsx';
-import { InteractiveChallengeModal } from './components/InteractiveChallengeModal.jsx';
 
 export default function App() {
-  // Default configuration targeting local Keycloak
+  // Configuration targeting local Keycloak
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem('kc_app_config');
     if (saved) {
@@ -40,7 +37,6 @@ export default function App() {
     };
   });
 
-  const [authMode, setAuthMode] = useState('simulator');
   const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('auth-flows');
   const [auditLogs, setAuditLogs] = useState(() => [
@@ -48,18 +44,11 @@ export default function App() {
       id: 'init-1',
       timestamp: new Date().toLocaleTimeString(),
       type: 'PKCE_GEN',
-      title: 'Keycloak SFA & PFA Studio Ready',
-      detail: 'Crypto subsystem ready for RFC 7636 PKCE S256 code exchanges',
+      title: 'Local Keycloak Client Initialized',
+      detail: 'Configured for PKCE S256 code exchange against local Keycloak at port 8080.',
       status: 'info',
     },
   ]);
-
-  // Modal challenge state
-  const [modalConfig, setModalConfig] = useState({
-    isOpen: false,
-    type: 'sfa',
-    onSuccess: () => {},
-  });
 
   const addAuditLog = useCallback((item) => {
     setAuditLogs((prev) => [item, ...prev].slice(0, 100));
@@ -113,7 +102,7 @@ export default function App() {
     }
   }, [config, addAuditLog]);
 
-  // Listener in parent window for messages from auth popup
+  // Listener in parent window for messages from Keycloak auth popup
   useEffect(() => {
     const handleMessage = async (event) => {
       if (event.data?.type === 'KEYCLOAK_AUTH_CODE') {
@@ -177,7 +166,7 @@ export default function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, [config, addAuditLog]);
 
-  // Helper when tokens are received from live Keycloak
+  // Process tokens returned from local Keycloak
   const handleLiveTokensReceived = (tokens, flowLabel) => {
     const decodedAccess = parseJwt(tokens.access_token);
     const decodedId = tokens.id_token ? parseJwt(tokens.id_token) : undefined;
@@ -186,6 +175,7 @@ export default function App() {
     const acr = payload.acr || '';
     const amr = payload.amr || [];
 
+    // Evaluate factor level from token claims:
     const isPfa =
       acr === config.pfaAcrValue ||
       String(acr).includes('pfa') ||
@@ -236,13 +226,13 @@ export default function App() {
     });
   };
 
-  const handleSessionCreated = (newSession, flowTitle) => {
+  const handleSessionCreated = (newSession) => {
     setSession(newSession);
     setActiveTab('tokens');
   };
 
   const handleLogout = () => {
-    if (session?.authMode === 'live' && session.tokens.id_token) {
+    if (session && session.tokens?.id_token) {
       const logoutUrl = buildLogoutUrl(config, session.tokens.id_token);
       setSession(null);
       addAuditLog({
@@ -250,7 +240,7 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
         type: 'LOGOUT',
         title: 'Session Terminated',
-        detail: 'User logged out. Redirecting to Keycloak logout endpoint.',
+        detail: 'User logged out. Opening Keycloak logout endpoint.',
         status: 'info',
       });
       window.open(logoutUrl, '_blank', 'width=500,height=400');
@@ -268,7 +258,7 @@ export default function App() {
   };
 
   const handleRefreshToken = async () => {
-    if (!session || !session.tokens.refresh_token) return;
+    if (!session || !session.tokens?.refresh_token) return;
 
     try {
       addAuditLog({
@@ -276,31 +266,9 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString(),
         type: 'TOKEN_REFRESH',
         title: 'Initiating Token Refresh',
-        detail: 'Exchanging refresh_token at /token endpoint for renewed access token.',
+        detail: `Calling ${config.baseUrl}/protocol/openid-connect/token with grant_type=refresh_token`,
         status: 'info',
       });
-
-      if (session.authMode === 'simulator') {
-        setTimeout(() => {
-          setSession((prev) => {
-            if (!prev) return null;
-            return {
-              ...prev,
-              issuedAt: Date.now(),
-              expiresAt: Date.now() + 300 * 1000,
-            };
-          });
-          addAuditLog({
-            id: 'ref-ok-' + Date.now(),
-            timestamp: new Date().toLocaleTimeString(),
-            type: 'TOKEN_REFRESH',
-            title: 'Token Successfully Refreshed',
-            detail: 'Renewed session lifespan by +300 seconds.',
-            status: 'success',
-          });
-        }, 400);
-        return;
-      }
 
       const refreshed = await refreshTokens(config, session.tokens.refresh_token);
       const decodedAccess = parseJwt(refreshed.access_token);
@@ -340,64 +308,73 @@ export default function App() {
     }
   };
 
-  const handleStepUpElevation = () => {
+  // Step-Up Elevation against local Keycloak
+  const handleStepUpElevation = async () => {
     if (!session) return;
 
-    if (session.authMode === 'live') {
-      setActiveTab('auth-flows');
+    try {
+      const { codeVerifier, codeChallenge } = await generatePkce();
+      const state = Math.random().toString(36).substring(2, 15);
+      const nonce = Math.random().toString(36).substring(2, 15);
+
+      sessionStorage.setItem('kc_pkce_verifier', codeVerifier);
+      sessionStorage.setItem('kc_state', state);
+      sessionStorage.setItem('kc_flow_label', 'PFA Step-Up Re-Authentication');
+
+      const authUrl = buildAuthorizeUrl(config, {
+        codeChallenge,
+        state,
+        nonce,
+        acrValue: config.pfaAcrValue,
+        loginHint: session.user.username,
+      });
+
       addAuditLog({
-        id: 'stepup-prompt-' + Date.now(),
+        id: 'stepup-' + Date.now(),
         timestamp: new Date().toLocaleTimeString(),
         type: 'STEP_UP_CHALLENGE',
-        title: 'Step-Up Authentication Required',
-        detail: `Launching authorization request with acr_values="${config.pfaAcrValue}" to step up to PFA.`,
+        title: 'Triggering PFA Step-Up Challenge',
+        detail: `Requesting elevated assurance acr_values="${config.pfaAcrValue}" for user ${session.user.username}`,
         status: 'warning',
+        payload: { authUrl },
       });
-      return;
+
+      const popupWidth = 600;
+      const popupHeight = 700;
+      const left = window.screenX + (window.outerWidth - popupWidth) / 2;
+      const top = window.screenY + (window.outerHeight - popupHeight) / 2;
+
+      const popup = window.open(
+        authUrl,
+        'keycloak_auth_popup',
+        `width=${popupWidth},height=${popupHeight},left=${left},top=${top},status=no,toolbar=no,menubar=no`
+      );
+
+      if (!popup) {
+        window.location.href = authUrl;
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      addAuditLog({
+        id: 'err-' + Date.now(),
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'ERROR',
+        title: 'Failed to initiate step-up',
+        detail: msg,
+        status: 'error',
+      });
     }
-
-    setModalConfig({
-      isOpen: true,
-      type: 'otp',
-      onSuccess: () => {
-        const elevated = elevateSfaToPfa(session, 'otp');
-        setSession(elevated);
-        setModalConfig((prev) => ({ ...prev, isOpen: false }));
-        setActiveTab('tokens');
-        addAuditLog({
-          id: 'stepup-' + Date.now(),
-          timestamp: new Date().toLocaleTimeString(),
-          type: 'STEP_UP_COMPLETED',
-          title: 'Session Successfully Stepped Up to PFA',
-          detail: 'Second factor (TOTP) verified. Elevated token claims to acr="loa-2", amr=["pwd", "otp"]',
-          status: 'success',
-          payload: elevated.decodedAccessToken?.payload,
-        });
-      },
-    });
-  };
-
-  const handleRequestInteractiveModal = (type, callback) => {
-    setModalConfig({
-      isOpen: true,
-      type,
-      onSuccess: () => {
-        setModalConfig((prev) => ({ ...prev, isOpen: false }));
-        callback();
-      },
-    });
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
       {/* Top Header */}
       <Header
-        authMode={authMode}
-        onAuthModeChange={setAuthMode}
         session={session}
         onLogout={handleLogout}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
+        config={config}
       />
 
       {/* Navigation Tabs */}
@@ -410,24 +387,20 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Live Keycloak Health Status Bar (shown when in live mode) */}
-        {authMode === 'live' && (
-          <KeycloakHealthBanner
-            config={config}
-            onOpenGuide={() => setActiveTab('guide')}
-          />
-        )}
+        {/* Live Keycloak Health Status Bar */}
+        <KeycloakHealthBanner
+          config={config}
+          onOpenGuide={() => setActiveTab('guide')}
+        />
 
         {/* Tab 1: Auth Flows & Testing Console */}
         {activeTab === 'auth-flows' && (
           <AuthFlowScreen
-            authMode={authMode}
             config={config}
             onUpdateConfig={handleUpdateConfig}
             session={session}
             onSessionCreated={handleSessionCreated}
             onLogAudit={addAuditLog}
-            onRequestInteractiveModal={handleRequestInteractiveModal}
           />
         )}
 
@@ -463,17 +436,9 @@ export default function App() {
         )}
       </main>
 
-      {/* Interactive Challenge Modal (for biometric WebAuthn & TOTP simulation) */}
-      <InteractiveChallengeModal
-        isOpen={modalConfig.isOpen}
-        type={modalConfig.type}
-        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
-        onSuccess={modalConfig.onSuccess}
-      />
-
       {/* Footer */}
       <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-        <p>Keycloak SFA &amp; PFA Authentication Studio • OpenID Connect &amp; RFC 7636 PKCE Compliant</p>
+        <p>Keycloak SFA &amp; PFA Authentication Studio • Direct Local OIDC with RFC 7636 PKCE</p>
       </footer>
     </div>
   );
