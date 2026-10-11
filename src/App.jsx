@@ -49,7 +49,11 @@ export default function App() {
     const saved = localStorage.getItem('kc_app_config');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (parsed.clientId === 'react-app') {
+          parsed.clientId = 'callrecording';
+        }
+        return parsed;
       } catch {
         // fallback
       }
@@ -57,13 +61,29 @@ export default function App() {
     return {
       baseUrl: 'http://localhost:8080',
       realm: 'sfa-pfa-demo',
-      clientId: 'react-app',
+      clientId: 'callrecording',
       redirectUri: `${window.location.origin}/auth/callback`,
       scope: 'openid',
       sfaAcrValue: 'loa-1',
       pfaAcrValue: 'loa-2',
     };
   });
+
+  const handleSwitchClient = (newClientId) => {
+    setConfig((prev) => {
+      const updated = { ...prev, clientId: newClientId };
+      localStorage.setItem('kc_app_config', JSON.stringify(updated));
+      return updated;
+    });
+    addAuditLog({
+      id: 'switch-client-' + Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'CONFIG_CHANGE',
+      title: `Active Client Switched to "${newClientId}"`,
+      detail: `OIDC PKCE flows and Direct Access Grants now target Keycloak client "${newClientId}".`,
+      status: 'info',
+    });
+  };
 
   const [session, setSession] = useState(null);
   const [authError, setAuthError] = useState(null);
@@ -321,6 +341,13 @@ export default function App() {
     const displayAcr = acr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
     const displayAmr = amr.length > 0 ? amr : (isPfa ? (isWebAuthn ? ['webauthn'] : ['pwd', 'otp']) : ['pwd']);
 
+    const clientRoles = accessPayload.resource_access?.[config.clientId]?.roles || [];
+    const realmRoles = accessPayload.realm_access?.roles || [];
+    const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
+      (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
+    );
+    const effectiveRoles = allRoles.length > 0 ? allRoles : ['user'];
+
     const newSession = {
       isAuthenticated: true,
       factorLevel,
@@ -329,9 +356,9 @@ export default function App() {
       user: {
         id: accessPayload.sub || idPayload.sub || 'user-id',
         username,
-        email: accessPayload.email || idPayload.email || `${username}@example.com`,
+        email: accessPayload.email || idPayload.email || `${username}@hcltech.com`,
         name: accessPayload.name || idPayload.name || accessPayload.preferred_username || username,
-        roles: accessPayload.realm_access?.roles || ['user'],
+        roles: effectiveRoles,
       },
       tokens,
       decodedAccessToken: decodedAccess,
@@ -543,13 +570,14 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-        {/* Top Material UI Header with Dark/Light Toggle */}
+        {/* Top Material UI Header with Dark/Light Toggle & Client Switcher */}
         <Header
           session={session}
           onLogout={handleLogout}
           activeTab={activeTab}
           onSelectTab={setActiveTab}
           config={config}
+          onSwitchClient={handleSwitchClient}
           themeMode={themeMode}
           onToggleTheme={handleToggleTheme}
         />
@@ -609,6 +637,7 @@ export default function App() {
             <AuthFlowScreen
               config={config}
               onUpdateConfig={handleUpdateConfig}
+              onSwitchClient={handleSwitchClient}
               session={session}
               onSessionCreated={handleSessionCreated}
               onLogAudit={addAuditLog}

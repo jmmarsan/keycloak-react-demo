@@ -10,6 +10,8 @@ import {
   Tooltip,
   useTheme,
 } from '@mui/material';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import ShieldIcon from '@mui/icons-material/Shield';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
@@ -20,6 +22,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
+import EmailIcon from '@mui/icons-material/Email';
 
 export const Header = ({
   session,
@@ -27,6 +31,7 @@ export const Header = ({
   activeTab,
   onSelectTab,
   config,
+  onSwitchClient,
   themeMode,
   onToggleTheme,
 }) => {
@@ -93,11 +98,60 @@ export const Header = ({
             size="small"
             variant="outlined"
             sx={{
-              display: { xs: 'none', md: 'inline-flex' },
+              display: { xs: 'none', lg: 'inline-flex' },
               fontFamily: 'monospace',
               fontSize: '0.75rem',
             }}
           />
+
+          {/* Active Client Switcher (callrecording vs faxmail) */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', md: 'inline' }, fontWeight: 700 }}>
+              Client:
+            </Typography>
+            <ToggleButtonGroup
+              size="small"
+              value={config?.clientId === 'faxmail' ? 'faxmail' : 'callrecording'}
+              exclusive
+              onChange={(_, nextClient) => {
+                if (nextClient && onSwitchClient) {
+                  onSwitchClient(nextClient);
+                }
+              }}
+              sx={{
+                height: 28,
+                bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+                '& .MuiToggleButton-root': {
+                  px: 1.2,
+                  py: 0,
+                  fontSize: '0.72rem',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  lineHeight: '26px',
+                  '&.Mui-selected': {
+                    bgcolor: (theme) =>
+                      config?.clientId === 'faxmail'
+                        ? 'rgba(168, 85, 247, 0.2)'
+                        : 'rgba(6, 182, 212, 0.2)',
+                    color: (theme) =>
+                      config?.clientId === 'faxmail'
+                        ? '#a855f7'
+                        : '#06b6d4',
+                    fontWeight: 800,
+                  },
+                },
+              }}
+            >
+              <ToggleButton value="callrecording" aria-label="Call Recording client">
+                <PhoneInTalkIcon sx={{ fontSize: '0.85rem', mr: 0.5 }} />
+                callrecording
+              </ToggleButton>
+              <ToggleButton value="faxmail" aria-label="Fax Mail client">
+                <EmailIcon sx={{ fontSize: '0.85rem', mr: 0.5 }} />
+                faxmail
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
 
           {/* Current Session Chip */}
           {session ? (

@@ -15,6 +15,12 @@ import {
   IconButton,
   Tooltip,
   Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  ToggleButton,
+  ToggleButtonGroup,
   useTheme,
 } from '@mui/material';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
@@ -25,19 +31,28 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import TuneIcon from '@mui/icons-material/Tune';
 import CodeIcon from '@mui/icons-material/Code';
+import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
+import EmailIcon from '@mui/icons-material/Email';
 import { generatePkce, buildAuthorizeUrl, directGrantLogin, parseJwt } from '../services/oidc.js';
+import { AVAILABLE_CLIENTS, AVAILABLE_ROLES } from '../data/keycloakExport.js';
 
 export const AuthFlowScreen = ({
   config,
   onUpdateConfig,
+  onSwitchClient,
   session,
   onSessionCreated,
   onLogAudit,
 }) => {
   const theme = useTheme();
   const [showConfig, setShowConfig] = useState(false);
-  const [directFactorLevel, setDirectFactorLevel] = useState('webauthn');
-  const [directUsername, setDirectUsername] = useState('sam.webauthn');
+
+  // Selection state for testing users (role and factor instance; client is driven by active config.clientId)
+  const [selectedRole, setSelectedRole] = useState('user');
+  const [selectedUserIndex, setSelectedUserIndex] = useState('sfa');
+
+  const [directFactorLevel, setDirectFactorLevel] = useState('sfa');
+  const [directUsername, setDirectUsername] = useState(() => `${config.clientId === 'faxmail' ? 'faxmail' : 'callrecording'}.user.sfa`);
   const [directPassword, setDirectPassword] = useState('password123');
   const [directOtp, setDirectOtp] = useState('');
   const [isDirectLoading, setIsDirectLoading] = useState(false);
@@ -67,21 +82,41 @@ export const AuthFlowScreen = ({
     refreshPkcePreview();
   }, []);
 
-  // Switch Direct Grant target factor level and corresponding test user
-  const handleSelectDirectFactorLevel = (level) => {
-    setDirectFactorLevel(level);
-    if (level === 'webauthn') {
-      setDirectUsername('sam.webauthn');
-      setDirectPassword('password123');
-      setDirectOtp('');
-    } else if (level === 'pfa') {
-      setDirectUsername('morgan.pfa');
-      setDirectPassword('password123');
-    } else {
-      setDirectUsername('alex.sfa');
-      setDirectPassword('password123');
-      setDirectOtp('');
+  // Keep selected username in sync when config.clientId changes externally
+  useEffect(() => {
+    if (config.clientId) {
+      const activeApp = config.clientId;
+      const uname = `${activeApp}.${selectedRole}.${selectedUserIndex}`;
+      setDirectUsername(uname);
     }
+  }, [config.clientId, selectedRole, selectedUserIndex]);
+
+  // Update combo selections, username, and target factor level based on identification type
+  const updateCombosAndUsername = (role, userIndexOrId) => {
+    setSelectedRole(role);
+    setSelectedUserIndex(userIndexOrId);
+
+    const activeApp = config.clientId || 'callrecording';
+    let uname = '';
+    let factor = 'sfa';
+
+    if (userIndexOrId === 'sfa' || userIndexOrId === '1') {
+      uname = `${activeApp}.${role}.sfa`;
+      factor = 'sfa';
+    } else if (userIndexOrId === 'totp' || userIndexOrId === '2') {
+      uname = `${activeApp}.${role}.totp`;
+      factor = 'pfa';
+    } else if (userIndexOrId === 'fido2' || userIndexOrId === 'fido' || userIndexOrId === '3') {
+      uname = `${activeApp}.${role}.fido2`;
+      factor = 'webauthn';
+    } else {
+      uname = `${activeApp}.${role}.${userIndexOrId}`;
+      factor = 'sfa';
+    }
+
+    setDirectUsername(uname);
+    setDirectPassword('password123');
+    setDirectFactorLevel(factor);
   };
 
   // Launch live OIDC PKCE flow
@@ -172,14 +207,21 @@ export const AuthFlowScreen = ({
       let factorTypeDescription = 'Single-Factor (Direct Grant Username/Password)';
       let amr = ['pwd'];
       if (isWebAuthn) {
-        factorTypeDescription = 'Protected Factor: Passkey / WebAuthn (Direct Grant sam.webauthn • LoA 2)';
+        factorTypeDescription = 'Protected Factor: Passkey / WebAuthn (FIDO2 • LoA 2)';
         amr = ['webauthn', 'pwd'];
       } else if (isPfa) {
         factorTypeDescription = directOtp
           ? 'Protected Factor: Step-Up MFA (Direct Grant with OTP • LoA 2)'
-          : 'Protected Factor (Direct Grant PFA Mode • LoA 2)';
+          : 'Protected Factor: Step-Up MFA (TOTP Mode • LoA 2)';
         amr = ['pwd', 'otp'];
       }
+
+      const clientRoles = accessPayload.resource_access?.[config.clientId]?.roles || [];
+      const realmRoles = accessPayload.realm_access?.roles || [];
+      const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
+        (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
+      );
+      const effectiveRoles = allRoles.length > 0 ? allRoles : [selectedRole || 'user'];
 
       const newSession = {
         isAuthenticated: true,
@@ -189,9 +231,9 @@ export const AuthFlowScreen = ({
         user: {
           id: accessPayload.sub || idPayload.sub || 'user-id',
           username: accessPayload.preferred_username || idPayload.preferred_username || directUsername,
-          email: accessPayload.email || idPayload.email || `${directUsername}@example.com`,
+          email: accessPayload.email || idPayload.email || `${directUsername}@hcltech.com`,
           name: accessPayload.name || idPayload.name || directUsername,
-          roles: accessPayload.realm_access?.roles || ['user'],
+          roles: effectiveRoles,
         },
         tokens,
         decodedAccessToken: decodedAccess,
@@ -395,9 +437,42 @@ export const AuthFlowScreen = ({
                 Scope: <strong>{config.scope || 'openid'}</strong>
               </Typography>
             </Box>
-            <Typography variant="caption" color="text.secondary">
-              Testing SFA (<code>{config.sfaAcrValue}</code>) and PFA (<code>{config.pfaAcrValue}</code>)
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+              <Typography variant="caption" color="text.secondary">
+                Testing SFA (<code>{config.sfaAcrValue}</code>) and PFA (<code>{config.pfaAcrValue}</code>)
+              </Typography>
+              <Divider orientation="vertical" flexItem sx={{ height: 14, my: 'auto' }} />
+              <Typography variant="caption" fontWeight={700} color="text.secondary">
+                Active Client:
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                value={config.clientId === 'faxmail' ? 'faxmail' : 'callrecording'}
+                exclusive
+                onChange={(_, val) => {
+                  if (val && onSwitchClient) onSwitchClient(val);
+                }}
+                sx={{
+                  height: 24,
+                  '& .MuiToggleButton-root': {
+                    px: 1,
+                    py: 0,
+                    fontSize: '0.68rem',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                  },
+                }}
+              >
+                <ToggleButton value="callrecording">
+                  <PhoneInTalkIcon sx={{ fontSize: '0.75rem', mr: 0.5 }} />
+                  callrecording
+                </ToggleButton>
+                <ToggleButton value="faxmail">
+                  <EmailIcon sx={{ fontSize: '0.75rem', mr: 0.5 }} />
+                  faxmail
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
           </Box>
         </Box>
 
@@ -540,11 +615,13 @@ export const AuthFlowScreen = ({
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Test User:</Typography>
-                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="warning.main">alex.sfa</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="warning.main">
+                    {config.clientId}.user.sfa
+                  </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Factor:</Typography>
-                  <Typography variant="caption" fontWeight={600}>Password Only</Typography>
+                  <Typography variant="caption" fontWeight={600}>Password Only (LoA 1)</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Expected AMR:</Typography>
@@ -568,110 +645,18 @@ export const AuthFlowScreen = ({
                     acrValue: config.sfaAcrValue,
                     flowLabel: 'SFA Standard Login',
                     factorLevel: 'sfa',
-                    loginHint: 'alex.sfa',
+                    loginHint: `${config.clientId}.user.sfa`,
                     prompt: 'login',
                   })
                 }
               >
-                Launch SFA Login (alex.sfa)
+                Launch SFA Login ({config.clientId}.user.sfa)
               </Button>
             </CardActions>
           </Card>
         </Grid>
 
-        {/* CARD 2: PFA Passwordless */}
-        <Grid item xs={12} md={4}>
-          <Card
-            variant="outlined"
-            sx={{
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-              transition: 'transform 0.2s, box-shadow 0.2s',
-              '&:hover': {
-                transform: 'translateY(-2px)',
-                boxShadow: theme.shadows[4],
-              },
-            }}
-          >
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 3,
-                    backgroundColor: 'info.light',
-                    color: 'info.dark',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <FingerprintIcon />
-                </Box>
-                <Chip label="PFA • Passwordless" color="info" size="small" sx={{ fontWeight: 700 }} />
-              </Box>
-
-              <Typography variant="h6" fontWeight={800} gutterBottom>
-                PFA: Passkey / WebAuthn
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
-                Phishing-resistant factor authentication. FIDO2 / TouchID / Security Key without passwords.
-              </Typography>
-
-              <Paper
-                variant="outlined"
-                sx={{
-                  p: 1.5,
-                  mt: 2,
-                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
-                  fontSize: '0.75rem',
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">Test User:</Typography>
-                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="info.main">sam.webauthn</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">Factor:</Typography>
-                  <Typography variant="caption" fontWeight={600}>FIDO2 Passkey</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">Expected AMR:</Typography>
-                  <Typography variant="caption" fontFamily="monospace" color="info.main">["webauthn"]</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="caption" color="text.secondary">Expected ACR:</Typography>
-                  <Typography variant="caption" fontFamily="monospace" color="info.main">"pfa"</Typography>
-                </Box>
-              </Paper>
-            </CardContent>
-
-            <CardActions sx={{ p: 2, pt: 0 }}>
-              <Button
-                fullWidth
-                variant="contained"
-                color="info"
-                endIcon={<OpenInNewIcon />}
-                onClick={() =>
-                  launchLiveOidcFlow({
-                    acrValue: 'pfa',
-                    flowLabel: 'PFA Passwordless WebAuthn',
-                    factorLevel: 'pfa',
-                    loginHint: 'sam.webauthn',
-                    prompt: 'login',
-                  })
-                }
-              >
-                Launch WebAuthn Flow (sam.webauthn)
-              </Button>
-            </CardActions>
-          </Card>
-        </Grid>
-
-        {/* CARD 3: PFA Step-Up MFA */}
+        {/* CARD 2: PFA Step-Up MFA */}
         <Grid item xs={12} md={4}>
           <Card
             variant="outlined"
@@ -724,7 +709,9 @@ export const AuthFlowScreen = ({
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Test User:</Typography>
-                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="success.main">morgan.pfa</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="success.main">
+                    {config.clientId}.user.totp
+                  </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Factor:</Typography>
@@ -752,12 +739,106 @@ export const AuthFlowScreen = ({
                     acrValue: config.pfaAcrValue,
                     flowLabel: 'PFA Step-Up MFA (LoA 2)',
                     factorLevel: 'pfa',
-                    loginHint: 'morgan.pfa',
+                    loginHint: `${config.clientId}.user.totp`,
                     prompt: 'login',
                   })
                 }
               >
-                Launch Step-Up Flow (morgan.pfa)
+                Launch Step-Up Flow ({config.clientId}.user.totp)
+              </Button>
+            </CardActions>
+          </Card>
+        </Grid>
+
+        {/* CARD 3: PFA Passwordless Passkey / WebAuthn */}
+        <Grid item xs={12} md={4}>
+          <Card
+            variant="outlined"
+            sx={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+              '&:hover': {
+                transform: 'translateY(-2px)',
+                boxShadow: theme.shadows[4],
+              },
+            }}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 3,
+                    backgroundColor: 'info.light',
+                    color: 'info.dark',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FingerprintIcon />
+                </Box>
+                <Chip label="PFA • Passwordless" color="info" size="small" sx={{ fontWeight: 700 }} />
+              </Box>
+
+              <Typography variant="h6" fontWeight={800} gutterBottom>
+                PFA: Passkey / WebAuthn
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ minHeight: 40 }}>
+                Phishing-resistant factor authentication. FIDO2 / TouchID / Security Key without passwords.
+              </Typography>
+
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 1.5,
+                  mt: 2,
+                  backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
+                  fontSize: '0.75rem',
+                }}
+              >
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Test User:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="info.main">
+                    {config.clientId}.user.fido2
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Factor:</Typography>
+                  <Typography variant="caption" fontWeight={600}>FIDO2 Passkey</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Expected AMR:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" color="info.main">["webauthn"]</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" color="text.secondary">Expected ACR:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" color="info.main">"pfa"</Typography>
+                </Box>
+              </Paper>
+            </CardContent>
+
+            <CardActions sx={{ p: 2, pt: 0 }}>
+              <Button
+                fullWidth
+                variant="contained"
+                color="info"
+                endIcon={<OpenInNewIcon />}
+                onClick={() =>
+                  launchLiveOidcFlow({
+                    acrValue: 'pfa',
+                    flowLabel: 'PFA Passwordless WebAuthn',
+                    factorLevel: 'pfa',
+                    loginHint: `${config.clientId}.user.fido2`,
+                    prompt: 'login',
+                  })
+                }
+              >
+                Launch WebAuthn Flow ({config.clientId}.user.fido2)
               </Button>
             </CardActions>
           </Card>
@@ -773,49 +854,217 @@ export const AuthFlowScreen = ({
               Direct Access Grants Tester (ROPC /token)
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Test calling Keycloak's token endpoint directly with username, password, and optional OTP.
+              Directly call Keycloak's token endpoint with the 18 testing accounts (2 Clients × 3 Roles × 3 Users).
             </Typography>
           </Box>
-          <Chip
-            label={`POST ${config.baseUrl}/realms/${config.realm}/protocol/openid-connect/token`}
-            size="small"
-            variant="outlined"
-            sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip
+              label={`Active Client: ${config.clientId}`}
+              size="small"
+              color={config.clientId === 'faxmail' ? 'secondary' : 'primary'}
+              sx={{ fontWeight: 700 }}
+            />
+            <Chip
+              label={`POST ${config.baseUrl}/realms/${config.realm}/protocol/openid-connect/token`}
+              size="small"
+              variant="outlined"
+              sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
+            />
+          </Box>
         </Box>
 
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography variant="caption" color="text.secondary" fontWeight={600}>
-            Direct Grant Target Level:
-          </Typography>
-          <Button
-            size="small"
-            variant={directFactorLevel === 'webauthn' ? 'contained' : 'outlined'}
-            color="info"
-            onClick={() => handleSelectDirectFactorLevel('webauthn')}
-            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
-          >
-            WebAuthn / Passkey • sam.webauthn
-          </Button>
-          <Button
-            size="small"
-            variant={directFactorLevel === 'pfa' ? 'contained' : 'outlined'}
-            color="success"
-            onClick={() => handleSelectDirectFactorLevel('pfa')}
-            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
-          >
-            PFA (LoA 2 / TOTP) • morgan.pfa
-          </Button>
-          <Button
-            size="small"
-            variant={directFactorLevel === 'sfa' ? 'contained' : 'outlined'}
-            color="warning"
-            onClick={() => handleSelectDirectFactorLevel('sfa')}
-            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
-          >
-            SFA (LoA 1 / Password) • alex.sfa
-          </Button>
-        </Box>
+        {/* 2 Combos Selector for Testing Users (Role + Factor Instance) */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            mb: 2.5,
+            borderRadius: 2.5,
+            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+            <Box>
+              <Typography variant="subtitle2" fontWeight={800} color="primary.main">
+                Testing user selector
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Driven by active target client (<strong>{config.clientId}</strong>). Selecting role and factor automatically fills the username, password (<code>password123</code>), and factor level.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                label={
+                  directFactorLevel === 'webauthn'
+                    ? 'PFA • Passkey / WebAuthn (LoA 2)'
+                    : directFactorLevel === 'pfa'
+                    ? 'PFA • Step-Up TOTP (LoA 2)'
+                    : 'SFA • Password Only (LoA 1)'
+                }
+                color={
+                  directFactorLevel === 'webauthn'
+                    ? 'info'
+                    : directFactorLevel === 'pfa'
+                    ? 'success'
+                    : 'default'
+                }
+                size="small"
+                sx={{ fontWeight: 700 }}
+              />
+              <Chip
+                label={`${directUsername}@hcltech.com`}
+                color="primary"
+                variant="outlined"
+                size="small"
+                sx={{ fontFamily: 'monospace', fontWeight: 700 }}
+              />
+            </Box>
+          </Box>
+
+          <Grid container spacing={2}>
+            {/* Combo 1: Role */}
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="direct-role-combo-label">1. Client Role</InputLabel>
+                <Select
+                  labelId="direct-role-combo-label"
+                  label="1. Client Role"
+                  value={selectedRole}
+                  onChange={(e) => {
+                    const newRole = e.target.value;
+                    updateCombosAndUsername(newRole, selectedUserIndex);
+                  }}
+                >
+                  <MenuItem value="user">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="user" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                      <Typography variant="body2">Standard User</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="tenant">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="tenant" color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                      <Typography variant="body2">Tenant Manager</Typography>
+                    </Box>
+                  </MenuItem>
+                  <MenuItem value="admin">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Chip label="admin" color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                      <Typography variant="body2">Administrator</Typography>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Combo 2: User Factor Instance */}
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="direct-user-combo-label">2. User Factor Instance</InputLabel>
+                <Select
+                  labelId="direct-user-combo-label"
+                  label="2. User Factor Instance"
+                  value={selectedUserIndex}
+                  onChange={(e) => {
+                    const newIndex = e.target.value;
+                    updateCombosAndUsername(selectedRole, newIndex);
+                  }}
+                >
+                  <MenuItem value="sfa">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 1,
+                          backgroundColor: 'warning.light',
+                          color: 'warning.dark',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <VpnKeyIcon sx={{ fontSize: 18 }} />
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <Chip label=".sfa" color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 800 }} />
+                          <Typography variant="body2" fontWeight={700}>
+                            Password (SFA • LoA 1)
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {config.clientId}.{selectedRole}.sfa • Standard Password Login
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+
+                  <MenuItem value="totp">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 1,
+                          backgroundColor: 'success.light',
+                          color: 'success.dark',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <VerifiedUserIcon sx={{ fontSize: 18 }} />
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <Chip label=".totp" color="success" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 800 }} />
+                          <Typography variant="body2" fontWeight={700}>
+                            PFA: Step-Up MFA (TOTP • LoA 2)
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {config.clientId}.{selectedRole}.totp • Password + Authenticator OTP
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+
+                  <MenuItem value="fido2">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Box
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: 1,
+                          backgroundColor: 'info.light',
+                          color: 'info.dark',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <FingerprintIcon sx={{ fontSize: 18 }} />
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          <Chip label=".fido2" color="info" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 800 }} />
+                          <Typography variant="body2" fontWeight={700}>
+                            PFA: Passkey / WebAuthn (FIDO2 • LoA 2)
+                          </Typography>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {config.clientId}.{selectedRole}.fido2 • Passkey Biometrics / FIDO2
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
 
         <form onSubmit={handleDirectGrant}>
           <Grid container spacing={2} alignItems="flex-end">
@@ -826,13 +1075,7 @@ export const AuthFlowScreen = ({
                 label="Username"
                 value={directUsername}
                 onChange={(e) => setDirectUsername(e.target.value)}
-                helperText={
-                  directFactorLevel === 'webauthn'
-                    ? 'WebAuthn User (Passkey / LoA 2)'
-                    : directFactorLevel === 'pfa'
-                    ? 'PFA User (MFA / LoA 2)'
-                    : 'SFA User (Password / LoA 1)'
-                }
+                helperText={`Target Client: ${config.clientId}`}
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -858,8 +1101,8 @@ export const AuthFlowScreen = ({
                   directFactorLevel === 'webauthn'
                     ? 'Passkey handled via WebAuthn; OTP optional'
                     : directFactorLevel === 'pfa'
-                    ? 'Leave empty or enter TOTP'
-                    : 'Not required for SFA'
+                    ? 'Leave empty or enter TOTP code'
+                    : 'Not required for standard password login'
                 }
               />
             </Grid>
@@ -870,7 +1113,7 @@ export const AuthFlowScreen = ({
                 type="submit"
                 disabled={isDirectLoading}
                 startIcon={<SendIcon />}
-                color={directFactorLevel === 'webauthn' ? 'info' : directFactorLevel === 'pfa' ? 'success' : 'warning'}
+                color={directFactorLevel === 'webauthn' ? 'info' : directFactorLevel === 'pfa' ? 'success' : 'primary'}
                 sx={{ height: 40, fontWeight: 700 }}
               >
                 {isDirectLoading ? 'Authenticating...' : `Request Token (${directUsername})`}
