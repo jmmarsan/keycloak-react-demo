@@ -29,6 +29,7 @@ export const TokenInspectorScreen = ({
   session,
   onRefresh,
   onStepUp,
+  onToggleFactorLevel,
   onGoToConsole,
 }) => {
   const theme = useTheme();
@@ -197,16 +198,51 @@ export const TokenInspectorScreen = ({
             </Box>
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {!isPfa && (
-              <Button
-                variant="contained"
-                color="success"
-                startIcon={<ArrowUpwardIcon />}
-                onClick={onStepUp}
-              >
-                Elevate to PFA
-              </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {isPfa ? (
+              <>
+                <Chip
+                  icon={<CheckIcon fontSize="small" />}
+                  label="PFA (LoA 2) Satisfied"
+                  color="success"
+                  sx={{ fontWeight: 700 }}
+                />
+                {onToggleFactorLevel && (
+                  <Tooltip title="Switch session to SFA (LoA 1) to test resource access denial policies">
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      onClick={() => onToggleFactorLevel('sfa')}
+                    >
+                      Test as SFA
+                    </Button>
+                  </Tooltip>
+                )}
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<ArrowUpwardIcon />}
+                  onClick={onStepUp}
+                >
+                  Elevate to PFA
+                </Button>
+                {onToggleFactorLevel && (
+                  <Tooltip title="Simulate PFA Level 2 assurance without re-authenticating">
+                    <Button
+                      variant="outlined"
+                      color="success"
+                      size="small"
+                      onClick={() => onToggleFactorLevel('pfa')}
+                    >
+                      Switch to PFA
+                    </Button>
+                  </Tooltip>
+                )}
+              </>
             )}
 
             <Button

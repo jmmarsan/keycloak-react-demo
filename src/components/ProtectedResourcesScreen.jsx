@@ -28,6 +28,7 @@ import PeopleIcon from '@mui/icons-material/People';
 export const ProtectedResourcesScreen = ({
   session,
   onStepUpToPfa,
+  onToggleFactorLevel,
   onGoToConsole,
   onLogAudit,
 }) => {
@@ -130,15 +131,46 @@ export const ProtectedResourcesScreen = ({
             </Typography>
           </Box>
 
-          {!isPfa && (
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<ArrowUpwardIcon />}
-              onClick={onStepUpToPfa}
-            >
-              Elevate to PFA Now
-            </Button>
+          {isPfa ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Chip
+                icon={<VerifiedUserIcon fontSize="small" />}
+                label="PFA Vault Unlocked"
+                color="success"
+                sx={{ fontWeight: 700 }}
+              />
+              {onToggleFactorLevel && (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  size="small"
+                  onClick={() => onToggleFactorLevel('sfa')}
+                >
+                  Test as SFA (Simulate Lock)
+                </Button>
+              )}
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<ArrowUpwardIcon />}
+                onClick={onStepUpToPfa}
+              >
+                Elevate to PFA Now
+              </Button>
+              {onToggleFactorLevel && (
+                <Button
+                  variant="outlined"
+                  color="success"
+                  size="small"
+                  onClick={() => onToggleFactorLevel('pfa')}
+                >
+                  Simulate PFA (Unlock)
+                </Button>
+              )}
+            </Box>
           )}
         </Box>
       </Paper>

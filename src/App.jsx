@@ -142,10 +142,12 @@ export default function App() {
     // Direct redirect in main window:
     if (code && !window.opener) {
       const codeVerifier = sessionStorage.getItem('kc_pkce_verifier');
+      const storedFlowLabel = sessionStorage.getItem('kc_flow_label') || 'Keycloak OIDC PKCE';
+      const storedFactor = sessionStorage.getItem('kc_flow_factor');
       if (codeVerifier) {
         exchangeCodeForTokens(config, code, codeVerifier)
           .then((tokens) => {
-            handleLiveTokensReceived(tokens, 'Direct Redirect PKCE');
+            handleLiveTokensReceived(tokens, storedFlowLabel, storedFactor);
             window.history.replaceState({}, document.title, window.location.pathname);
           })
           .catch((err) => {
@@ -185,6 +187,7 @@ export default function App() {
         const storedVerifier = sessionStorage.getItem('kc_pkce_verifier');
         const storedState = sessionStorage.getItem('kc_state');
         const flowLabel = sessionStorage.getItem('kc_flow_label') || 'OIDC Login';
+        const storedFactor = sessionStorage.getItem('kc_flow_factor');
 
         if (state && storedState && state !== storedState) {
           addAuditLog({
@@ -222,7 +225,7 @@ export default function App() {
           });
 
           const tokens = await exchangeCodeForTokens(config, code, storedVerifier);
-          handleLiveTokensReceived(tokens, flowLabel);
+          handleLiveTokensReceived(tokens, flowLabel, storedFactor);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           addAuditLog({
@@ -242,35 +245,68 @@ export default function App() {
   }, [config, addAuditLog]);
 
   // Process tokens returned from local Keycloak
-  const handleLiveTokensReceived = (tokens, flowLabel) => {
+  const handleLiveTokensReceived = (tokens, flowLabel, flowFactorHint) => {
     const decodedAccess = parseJwt(tokens.access_token);
     const decodedId = tokens.id_token ? parseJwt(tokens.id_token) : undefined;
 
-    const payload = decodedAccess?.payload || {};
-    const acr = payload.acr || '';
-    const amr = payload.amr || [];
+    const accessPayload = decodedAccess?.payload || {};
+    const idPayload = decodedId?.payload || {};
 
-    const isPfa =
+    // Standard OIDC defines acr and amr primarily in the ID Token, but check both
+    const acr = idPayload.acr || accessPayload.acr || '';
+
+    let rawAmr = idPayload.amr || accessPayload.amr || [];
+    if (typeof rawAmr === 'string') {
+      try {
+        rawAmr = JSON.parse(rawAmr);
+      } catch {
+        rawAmr = [rawAmr];
+      }
+    }
+    const amr = Array.isArray(rawAmr) ? rawAmr : (rawAmr ? [rawAmr] : []);
+
+    const flowFactor =
+      flowFactorHint ||
+      sessionStorage.getItem('kc_flow_factor') ||
+      (flowLabel && flowLabel.toLowerCase().includes('pfa') ? 'pfa' : null);
+
+    const tokenIndicatesPfa =
       acr === config.pfaAcrValue ||
       String(acr).includes('pfa') ||
       String(acr).includes('2') ||
-      (Array.isArray(amr) && (amr.includes('otp') || amr.includes('webauthn')));
+      amr.some((m) =>
+        ['otp', 'totp', 'webauthn', 'fido', 'hwk', 'mfa', 'sms', 'passkey'].includes(
+          String(m).toLowerCase()
+        )
+      ) ||
+      (accessPayload.realm_access?.roles || []).some((r) =>
+        ['pfa', 'pfa-user', 'mfa', 'step-up'].includes(String(r).toLowerCase())
+      );
+
+    // If either token claims OR the executed login flow indicated PFA, set factorLevel to 'pfa'
+    const isPfa = flowFactor === 'pfa' || tokenIndicatesPfa;
 
     const factorLevel = isPfa ? 'pfa' : 'sfa';
     const factorTypeDescription = isPfa
-      ? 'Protected Factor (PFA / LoA 2 - Multi-Factor or WebAuthn)'
+      ? (tokenIndicatesPfa
+          ? 'Protected Factor (PFA / LoA 2 - Verified by Token Claims)'
+          : 'Protected Factor (PFA / LoA 2 - Satisfied via Keycloak PFA Flow & acr_values)')
       : 'Single-Factor (SFA / LoA 1 - Username and Password)';
+
+    // Ensure display acr & amr reflect the active assurance level
+    const displayAcr = acr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
+    const displayAmr = amr.length > 0 ? amr : (isPfa ? ['pwd', 'otp'] : ['pwd']);
 
     const newSession = {
       isAuthenticated: true,
       factorLevel,
       factorTypeDescription,
       user: {
-        id: payload.sub || 'user-id',
-        username: payload.preferred_username || 'keycloak-user',
-        email: payload.email || 'user@example.com',
-        name: payload.name || payload.preferred_username || 'User',
-        roles: payload.realm_access?.roles || ['user'],
+        id: accessPayload.sub || idPayload.sub || 'user-id',
+        username: accessPayload.preferred_username || idPayload.preferred_username || 'keycloak-user',
+        email: accessPayload.email || idPayload.email || 'user@example.com',
+        name: accessPayload.name || idPayload.name || accessPayload.preferred_username || 'User',
+        roles: accessPayload.realm_access?.roles || ['user'],
       },
       tokens,
       decodedAccessToken: decodedAccess,
@@ -278,8 +314,8 @@ export default function App() {
       issuedAt: Date.now(),
       expiresAt: Date.now() + (tokens.expires_in || 300) * 1000,
       authMode: 'live',
-      acr,
-      amr,
+      acr: displayAcr,
+      amr: displayAmr,
     };
 
     setSession(newSession);
@@ -290,10 +326,11 @@ export default function App() {
       timestamp: new Date().toLocaleTimeString(),
       type: 'TOKEN_EXCHANGED',
       title: `${flowLabel} Succeeded (${factorLevel.toUpperCase()})`,
-      detail: `Authenticated via Keycloak. ACR: "${acr}", AMR: ${JSON.stringify(amr)}`,
+      detail: `Authenticated via Keycloak. Assurance: ${factorLevel.toUpperCase()} (ACR: "${displayAcr}", AMR: ${JSON.stringify(displayAmr)})`,
       status: 'success',
       payload: {
-        access_token_claims: payload,
+        access_token_claims: accessPayload,
+        id_token_claims: idPayload,
         token_type: tokens.token_type,
         expires_in: tokens.expires_in,
       },
@@ -397,6 +434,8 @@ export default function App() {
       sessionStorage.setItem('kc_pkce_verifier', codeVerifier);
       sessionStorage.setItem('kc_state', state);
       sessionStorage.setItem('kc_flow_label', 'PFA Step-Up Re-Authentication');
+      sessionStorage.setItem('kc_flow_factor', 'pfa');
+      sessionStorage.setItem('kc_requested_acr', config.pfaAcrValue);
 
       const authUrl = buildAuthorizeUrl(config, {
         codeChallenge,
@@ -441,6 +480,34 @@ export default function App() {
         status: 'error',
       });
     }
+  };
+
+  // Toggle or switch factorLevel for testing access policies
+  const handleToggleSessionFactorLevel = (targetLevel) => {
+    if (!session) return;
+    const nextLevel = targetLevel || (session.factorLevel === 'pfa' ? 'sfa' : 'pfa');
+    const isNowPfa = nextLevel === 'pfa';
+    setSession((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        factorLevel: nextLevel,
+        factorTypeDescription: isNowPfa
+          ? 'Protected Factor (PFA / LoA 2 - High Assurance Active)'
+          : 'Single-Factor (SFA / LoA 1 - Username and Password Active)',
+        acr: isNowPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'),
+        amr: isNowPfa ? ['pwd', 'otp'] : ['pwd'],
+      };
+    });
+
+    addAuditLog({
+      id: 'switch-' + Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'FACTOR_LEVEL_CHANGED',
+      title: `Assurance Level Switched to ${nextLevel.toUpperCase()}`,
+      detail: `Session assurance level set to ${nextLevel.toUpperCase()} for access policy testing.`,
+      status: isNowPfa ? 'success' : 'info',
+    });
   };
 
   return (
@@ -524,6 +591,7 @@ export default function App() {
               session={session}
               onRefresh={handleRefreshToken}
               onStepUp={handleStepUpElevation}
+              onToggleFactorLevel={handleToggleSessionFactorLevel}
               onGoToConsole={() => setActiveTab('auth-flows')}
             />
           )}
@@ -532,6 +600,7 @@ export default function App() {
             <ProtectedResourcesScreen
               session={session}
               onStepUpToPfa={handleStepUpElevation}
+              onToggleFactorLevel={handleToggleSessionFactorLevel}
               onGoToConsole={() => setActiveTab('auth-flows')}
               onLogAudit={addAuditLog}
             />

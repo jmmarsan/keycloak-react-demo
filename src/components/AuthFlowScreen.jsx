@@ -66,15 +66,22 @@ export const AuthFlowScreen = ({
     refreshPkcePreview();
   }, []);
 
+  // Direct Grant Factor selection
+  const [directFactorLevel, setDirectFactorLevel] = useState('pfa');
+
   // Launch live OIDC PKCE flow
   const launchLiveOidcFlow = async (options) => {
     const { codeVerifier, codeChallenge } = await generatePkce();
     const state = Math.random().toString(36).substring(2, 15);
     const nonce = Math.random().toString(36).substring(2, 15);
 
+    const factorLevel = options.factorLevel || (options.flowLabel?.toLowerCase().includes('pfa') ? 'pfa' : 'sfa');
+
     sessionStorage.setItem('kc_pkce_verifier', codeVerifier);
     sessionStorage.setItem('kc_state', state);
     sessionStorage.setItem('kc_flow_label', options.flowLabel);
+    sessionStorage.setItem('kc_flow_factor', factorLevel);
+    sessionStorage.setItem('kc_requested_acr', options.acrValue || '');
 
     const authUrl = buildAuthorizeUrl(config, {
       codeChallenge,
@@ -89,9 +96,9 @@ export const AuthFlowScreen = ({
       timestamp: new Date().toLocaleTimeString(),
       type: 'AUTH_START',
       title: `Initiated ${options.flowLabel} (PKCE)`,
-      detail: `Opening authorization URL with acr_values="${options.acrValue || 'none'}"`,
+      detail: `Opening authorization URL with acr_values="${options.acrValue || 'none'}" [Expected: ${factorLevel.toUpperCase()}]`,
       status: 'info',
-      payload: { authUrl, codeChallenge, state },
+      payload: { authUrl, codeChallenge, state, factorLevel },
     });
 
     const popupWidth = 600;
@@ -120,21 +127,32 @@ export const AuthFlowScreen = ({
       const tokens = await directGrantLogin(config, directUsername, directPassword, directOtp || undefined);
       const decodedAccess = parseJwt(tokens.access_token);
       const decodedId = tokens.id_token ? parseJwt(tokens.id_token) : undefined;
-      const acr = (decodedAccess?.payload?.acr) || (directOtp ? 'loa-2' : 'loa-1');
-      const isPfa = String(acr).includes('2') || String(acr).includes('pfa') || Boolean(directOtp);
+      
+      const accessPayload = decodedAccess?.payload || {};
+      const idPayload = decodedId?.payload || {};
+      const tokenAcr = idPayload.acr || accessPayload.acr || '';
+
+      const isPfa =
+        directFactorLevel === 'pfa' ||
+        Boolean(directOtp) ||
+        String(tokenAcr).includes('2') ||
+        String(tokenAcr).includes('pfa');
+
+      const factorLevel = isPfa ? 'pfa' : 'sfa';
+      const acr = tokenAcr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
 
       const newSession = {
         isAuthenticated: true,
-        factorLevel: isPfa ? 'pfa' : 'sfa',
+        factorLevel,
         factorTypeDescription: isPfa
-          ? 'Protected Factor (Direct Grant with OTP)'
+          ? (directOtp ? 'Protected Factor (Direct Grant with OTP)' : 'Protected Factor (Direct Grant PFA Mode)')
           : 'Single-Factor (Direct Grant Username/Password)',
         user: {
-          id: decodedAccess?.payload?.sub || 'user-id',
-          username: decodedAccess?.payload?.preferred_username || directUsername,
-          email: decodedAccess?.payload?.email || `${directUsername}@example.com`,
-          name: decodedAccess?.payload?.name || directUsername,
-          roles: decodedAccess?.payload?.realm_access?.roles || ['user'],
+          id: accessPayload.sub || idPayload.sub || 'user-id',
+          username: accessPayload.preferred_username || idPayload.preferred_username || directUsername,
+          email: accessPayload.email || idPayload.email || `${directUsername}@example.com`,
+          name: accessPayload.name || idPayload.name || directUsername,
+          roles: accessPayload.realm_access?.roles || ['user'],
         },
         tokens,
         decodedAccessToken: decodedAccess,
@@ -174,6 +192,77 @@ export const AuthFlowScreen = ({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Current Active Session Status Banner */}
+      {session && (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2.5,
+            borderRadius: 3,
+            borderColor: session.factorLevel === 'pfa' ? 'success.main' : 'warning.main',
+            backgroundColor:
+              session.factorLevel === 'pfa'
+                ? theme.palette.mode === 'dark'
+                  ? 'rgba(16, 185, 129, 0.08)'
+                  : 'rgba(16, 185, 129, 0.05)'
+                : theme.palette.mode === 'dark'
+                ? 'rgba(245, 158, 11, 0.08)'
+                : 'rgba(245, 158, 11, 0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2.5,
+                backgroundColor: session.factorLevel === 'pfa' ? 'success.light' : 'warning.light',
+                color: session.factorLevel === 'pfa' ? 'success.dark' : 'warning.dark',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {session.factorLevel === 'pfa' ? <VerifiedUserIcon /> : <VpnKeyIcon />}
+            </Box>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="body1" fontWeight={700}>
+                  Active Session:
+                </Typography>
+                <Chip
+                  label={session.factorLevel === 'pfa' ? 'PFA Active (LoA 2)' : 'SFA Active (LoA 1)'}
+                  color={session.factorLevel === 'pfa' ? 'success' : 'warning'}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+                <Typography variant="body2" fontWeight={600}>
+                  {session.user.username}
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="text.secondary">
+                {session.factorTypeDescription}
+              </Typography>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Button
+              size="small"
+              variant="contained"
+              color={session.factorLevel === 'pfa' ? 'success' : 'primary'}
+              onClick={() => onSessionCreated && onSessionCreated(session, 'Inspect')}
+            >
+              Inspect Tokens &amp; Claims
+            </Button>
+          </Box>
+        </Paper>
+      )}
+
       {/* Target Keycloak Config Summary Bar */}
       <Paper
         variant="outlined"
@@ -386,6 +475,7 @@ export const AuthFlowScreen = ({
                   launchLiveOidcFlow({
                     acrValue: config.sfaAcrValue,
                     flowLabel: 'SFA Standard Login',
+                    factorLevel: 'sfa',
                   })
                 }
               >
@@ -471,6 +561,7 @@ export const AuthFlowScreen = ({
                   launchLiveOidcFlow({
                     acrValue: 'pfa',
                     flowLabel: 'PFA Passwordless WebAuthn',
+                    factorLevel: 'pfa',
                   })
                 }
               >
@@ -556,6 +647,7 @@ export const AuthFlowScreen = ({
                   launchLiveOidcFlow({
                     acrValue: config.pfaAcrValue,
                     flowLabel: 'PFA Step-Up MFA (LoA 2)',
+                    factorLevel: 'pfa',
                   })
                 }
               >
@@ -584,6 +676,30 @@ export const AuthFlowScreen = ({
             variant="outlined"
             sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}
           />
+        </Box>
+
+        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            Direct Grant Target Level:
+          </Typography>
+          <Button
+            size="small"
+            variant={directFactorLevel === 'pfa' ? 'contained' : 'outlined'}
+            color="success"
+            onClick={() => setDirectFactorLevel('pfa')}
+            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none' }}
+          >
+            PFA (LoA 2 / MFA)
+          </Button>
+          <Button
+            size="small"
+            variant={directFactorLevel === 'sfa' ? 'contained' : 'outlined'}
+            color="warning"
+            onClick={() => setDirectFactorLevel('sfa')}
+            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none' }}
+          >
+            SFA (LoA 1 / Password)
+          </Button>
         </Box>
 
         <form onSubmit={handleDirectGrant}>
