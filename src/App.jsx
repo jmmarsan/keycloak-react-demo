@@ -4,6 +4,7 @@ import {
   parseJwt, 
   refreshTokens, 
   buildLogoutUrl,
+  executeKeycloakLogout,
   generatePkce,
   buildAuthorizeUrl 
 } from './services/oidc.js';
@@ -280,29 +281,32 @@ export default function App() {
     setActiveTab('tokens');
   };
 
-  const handleLogout = () => {
-    if (session && session.tokens?.id_token) {
-      const logoutUrl = buildLogoutUrl(config, session.tokens.id_token);
-      setSession(null);
-      addAuditLog({
-        id: 'logout-' + Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'LOGOUT',
-        title: 'Session Terminated',
-        detail: 'User logged out. Opening Keycloak logout endpoint.',
-        status: 'info',
-      });
-      window.open(logoutUrl, '_blank', 'width=500,height=400');
-    } else {
-      setSession(null);
-      addAuditLog({
-        id: 'logout-' + Date.now(),
-        timestamp: new Date().toLocaleTimeString(),
-        type: 'LOGOUT',
-        title: 'Session Terminated',
-        detail: 'Active authentication session cleared from memory.',
-        status: 'info',
-      });
+  const handleLogout = async () => {
+    const tokensToRevoke = session?.tokens;
+
+    // Immediately clear local session state and return to auth flows screen
+    setSession(null);
+    setActiveTab('auth-flows');
+    sessionStorage.removeItem('kc_pkce_verifier');
+    sessionStorage.removeItem('kc_state');
+    sessionStorage.removeItem('kc_flow_label');
+
+    addAuditLog({
+      id: 'logout-' + Date.now(),
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'LOGOUT',
+      title: 'Session Terminated',
+      detail: 'Local session cleared and Keycloak session revoked in the background.',
+      status: 'info',
+    });
+
+    // Invalidate Keycloak session in the background via POST (no popup window)
+    if (tokensToRevoke?.refresh_token || tokensToRevoke?.id_token) {
+      await executeKeycloakLogout(
+        config,
+        tokensToRevoke.refresh_token,
+        tokensToRevoke.id_token
+      );
     }
   };
 

@@ -289,3 +289,35 @@ export function buildLogoutUrl(config, idToken = null) {
 
   return `${endpoint}?${params.toString()}`;
 }
+
+/**
+ * Invalidate session on Keycloak via background POST request without opening any popup window
+ */
+export async function executeKeycloakLogout(config, refreshToken = null, idToken = null) {
+  try {
+    const cleanBase = config.baseUrl.replace(/\/+$/, '');
+    const endpoint = `${cleanBase}/realms/${encodeURIComponent(config.realm)}/protocol/openid-connect/logout`;
+
+    const body = new URLSearchParams({
+      client_id: config.clientId,
+    });
+
+    if (refreshToken) {
+      body.set('refresh_token', refreshToken);
+    }
+    if (idToken) {
+      body.set('id_token_hint', idToken);
+    }
+
+    await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: body.toString(),
+      mode: 'cors',
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('Background Keycloak session revocation notice:', err);
+  }
+}
