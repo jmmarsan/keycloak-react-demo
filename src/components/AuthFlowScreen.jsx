@@ -36,8 +36,8 @@ export const AuthFlowScreen = ({
 }) => {
   const theme = useTheme();
   const [showConfig, setShowConfig] = useState(false);
-  const [directFactorLevel, setDirectFactorLevel] = useState('pfa');
-  const [directUsername, setDirectUsername] = useState('morgan.pfa');
+  const [directFactorLevel, setDirectFactorLevel] = useState('webauthn');
+  const [directUsername, setDirectUsername] = useState('sam.webauthn');
   const [directPassword, setDirectPassword] = useState('password123');
   const [directOtp, setDirectOtp] = useState('');
   const [isDirectLoading, setIsDirectLoading] = useState(false);
@@ -70,7 +70,11 @@ export const AuthFlowScreen = ({
   // Switch Direct Grant target factor level and corresponding test user
   const handleSelectDirectFactorLevel = (level) => {
     setDirectFactorLevel(level);
-    if (level === 'pfa') {
+    if (level === 'webauthn') {
+      setDirectUsername('sam.webauthn');
+      setDirectPassword('password123');
+      setDirectOtp('');
+    } else if (level === 'pfa') {
       setDirectUsername('morgan.pfa');
       setDirectPassword('password123');
     } else {
@@ -143,7 +147,12 @@ export const AuthFlowScreen = ({
       const idPayload = decodedId?.payload || {};
       const tokenAcr = idPayload.acr || accessPayload.acr || '';
 
+      const isWebAuthn =
+        directFactorLevel === 'webauthn' ||
+        directUsername.toLowerCase().includes('webauthn');
+
       const isPfa =
+        isWebAuthn ||
         directFactorLevel === 'pfa' ||
         directUsername.toLowerCase().includes('pfa') ||
         Boolean(directOtp) ||
@@ -153,12 +162,22 @@ export const AuthFlowScreen = ({
       const factorLevel = isPfa ? 'pfa' : 'sfa';
       const acr = tokenAcr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
 
+      let factorTypeDescription = 'Single-Factor (Direct Grant Username/Password)';
+      let amr = ['pwd'];
+      if (isWebAuthn) {
+        factorTypeDescription = 'Protected Factor (Direct Grant WebAuthn/Passkey User)';
+        amr = ['webauthn', 'pwd'];
+      } else if (isPfa) {
+        factorTypeDescription = directOtp
+          ? 'Protected Factor (Direct Grant with OTP)'
+          : 'Protected Factor (Direct Grant PFA Mode)';
+        amr = ['pwd', 'otp'];
+      }
+
       const newSession = {
         isAuthenticated: true,
         factorLevel,
-        factorTypeDescription: isPfa
-          ? (directOtp ? 'Protected Factor (Direct Grant with OTP)' : 'Protected Factor (Direct Grant PFA Mode)')
-          : 'Single-Factor (Direct Grant Username/Password)',
+        factorTypeDescription,
         user: {
           id: accessPayload.sub || idPayload.sub || 'user-id',
           username: accessPayload.preferred_username || idPayload.preferred_username || directUsername,
@@ -173,7 +192,7 @@ export const AuthFlowScreen = ({
         expiresAt: Date.now() + (tokens.expires_in || 300) * 1000,
         authMode: 'live',
         acr,
-        amr: isPfa ? ['pwd', 'otp'] : ['pwd'],
+        amr,
       };
 
       setIsDirectLoading(false);
@@ -708,12 +727,21 @@ export const AuthFlowScreen = ({
           </Typography>
           <Button
             size="small"
+            variant={directFactorLevel === 'webauthn' ? 'contained' : 'outlined'}
+            color="info"
+            onClick={() => handleSelectDirectFactorLevel('webauthn')}
+            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
+          >
+            WebAuthn / Passkey • sam.webauthn
+          </Button>
+          <Button
+            size="small"
             variant={directFactorLevel === 'pfa' ? 'contained' : 'outlined'}
             color="success"
             onClick={() => handleSelectDirectFactorLevel('pfa')}
             sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
           >
-            PFA (LoA 2 / MFA) • morgan.pfa
+            PFA (LoA 2 / TOTP) • morgan.pfa
           </Button>
           <Button
             size="small"
@@ -735,7 +763,13 @@ export const AuthFlowScreen = ({
                 label="Username"
                 value={directUsername}
                 onChange={(e) => setDirectUsername(e.target.value)}
-                helperText={directFactorLevel === 'pfa' ? 'PFA User (MFA / LoA 2)' : 'SFA User (Password / LoA 1)'}
+                helperText={
+                  directFactorLevel === 'webauthn'
+                    ? 'WebAuthn User (Passkey / LoA 2)'
+                    : directFactorLevel === 'pfa'
+                    ? 'PFA User (MFA / LoA 2)'
+                    : 'SFA User (Password / LoA 1)'
+                }
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -757,7 +791,13 @@ export const AuthFlowScreen = ({
                 placeholder="123456"
                 value={directOtp}
                 onChange={(e) => setDirectOtp(e.target.value)}
-                helperText={directFactorLevel === 'pfa' ? 'Leave empty or enter TOTP' : 'Not required for SFA'}
+                helperText={
+                  directFactorLevel === 'webauthn'
+                    ? 'Passkey handled via WebAuthn; OTP optional'
+                    : directFactorLevel === 'pfa'
+                    ? 'Leave empty or enter TOTP'
+                    : 'Not required for SFA'
+                }
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -767,7 +807,7 @@ export const AuthFlowScreen = ({
                 type="submit"
                 disabled={isDirectLoading}
                 startIcon={<SendIcon />}
-                color={directFactorLevel === 'pfa' ? 'success' : 'warning'}
+                color={directFactorLevel === 'webauthn' ? 'info' : directFactorLevel === 'pfa' ? 'success' : 'warning'}
                 sx={{ height: 40, fontWeight: 700 }}
               >
                 {isDirectLoading ? 'Authenticating...' : `Request Token (${directUsername})`}
