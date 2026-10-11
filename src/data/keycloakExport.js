@@ -40,7 +40,7 @@ const generateTestingUsers = () => {
           username,
           enabled: true,
           email: `${username}@hcltech.com`,
-          firstName: `${appLabel} ${roleLabel} (${authLabel})`,
+          firstName: `${appLabel} ${roleLabel}`,
           lastName: suffix.toUpperCase(),
           emailVerified: true,
           credentials: [
@@ -123,6 +123,7 @@ export const KEYCLOAK_DEMO_REALM = {
   realm: 'sfa-pfa-demo',
   displayName: 'SFA & PFA Demo Realm',
   enabled: true,
+  verifyEmail: false,
   sslRequired: 'external',
   registrationAllowed: false,
   loginWithEmailAllowed: true,

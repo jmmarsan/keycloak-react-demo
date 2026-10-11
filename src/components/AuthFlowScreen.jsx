@@ -50,6 +50,9 @@ export const AuthFlowScreen = ({
   // Selection state for testing users (role and factor instance; client is driven by active config.clientId)
   const [selectedRole, setSelectedRole] = useState('user');
   const [selectedUserIndex, setSelectedUserIndex] = useState('sfa');
+  const [sfaCardRole, setSfaCardRole] = useState('user');
+  const [totpCardRole, setTotpCardRole] = useState('user');
+  const [fidoCardRole, setFidoCardRole] = useState('user');
 
   const [directFactorLevel, setDirectFactorLevel] = useState('sfa');
   const [directUsername, setDirectUsername] = useState(() => `${config.clientId === 'faxmail' ? 'faxmail' : 'callrecording'}.user.sfa`);
@@ -604,11 +607,44 @@ export const AuthFlowScreen = ({
                 Standard primary factor. User verifies identity on Keycloak with Username + Password form.
               </Typography>
 
+              {/* Role Combo Selector */}
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="sfa-card-role-label">Test Role</InputLabel>
+                  <Select
+                    labelId="sfa-card-role-label"
+                    label="Test Role"
+                    value={sfaCardRole}
+                    onChange={(e) => setSfaCardRole(e.target.value)}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    <MenuItem value="user">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="user" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Standard User</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="tenant">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="tenant" color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Tenant Manager</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="admin">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="admin" color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Administrator</Typography>
+                      </Box>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
               <Paper
                 variant="outlined"
                 sx={{
                   p: 1.5,
-                  mt: 2,
+                  mt: 1,
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
                   fontSize: '0.75rem',
                 }}
@@ -616,7 +652,7 @@ export const AuthFlowScreen = ({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Test User:</Typography>
                   <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="warning.main">
-                    {config.clientId}.user.sfa
+                    {config.clientId}.{sfaCardRole}.sfa
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -643,14 +679,14 @@ export const AuthFlowScreen = ({
                 onClick={() =>
                   launchLiveOidcFlow({
                     acrValue: config.sfaAcrValue,
-                    flowLabel: 'SFA Standard Login',
+                    flowLabel: `SFA Standard Login (${sfaCardRole})`,
                     factorLevel: 'sfa',
-                    loginHint: `${config.clientId}.user.sfa`,
+                    loginHint: `${config.clientId}.${sfaCardRole}.sfa`,
                     prompt: 'login',
                   })
                 }
               >
-                Launch SFA Login ({config.clientId}.user.sfa)
+                Launch SFA Login ({config.clientId}.{sfaCardRole}.sfa)
               </Button>
             </CardActions>
           </Card>
@@ -698,11 +734,44 @@ export const AuthFlowScreen = ({
                 Protected Multi-Factor. Demands Level of Assurance 2 by verifying Password + Authenticator OTP.
               </Typography>
 
+              {/* Role Combo Selector */}
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="totp-card-role-label">Test Role</InputLabel>
+                  <Select
+                    labelId="totp-card-role-label"
+                    label="Test Role"
+                    value={totpCardRole}
+                    onChange={(e) => setTotpCardRole(e.target.value)}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    <MenuItem value="user">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="user" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Standard User</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="tenant">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="tenant" color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Tenant Manager</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="admin">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="admin" color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Administrator</Typography>
+                      </Box>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
               <Paper
                 variant="outlined"
                 sx={{
                   p: 1.5,
-                  mt: 2,
+                  mt: 1,
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
                   fontSize: '0.75rem',
                 }}
@@ -710,7 +779,7 @@ export const AuthFlowScreen = ({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Test User:</Typography>
                   <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="success.main">
-                    {config.clientId}.user.totp
+                    {config.clientId}.{totpCardRole}.totp
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -737,14 +806,14 @@ export const AuthFlowScreen = ({
                 onClick={() =>
                   launchLiveOidcFlow({
                     acrValue: config.pfaAcrValue,
-                    flowLabel: 'PFA Step-Up MFA (LoA 2)',
+                    flowLabel: `PFA Step-Up MFA (${totpCardRole})`,
                     factorLevel: 'pfa',
-                    loginHint: `${config.clientId}.user.totp`,
+                    loginHint: `${config.clientId}.${totpCardRole}.totp`,
                     prompt: 'login',
                   })
                 }
               >
-                Launch Step-Up Flow ({config.clientId}.user.totp)
+                Launch Step-Up Flow ({config.clientId}.{totpCardRole}.totp)
               </Button>
             </CardActions>
           </Card>
@@ -792,11 +861,44 @@ export const AuthFlowScreen = ({
                 Phishing-resistant factor authentication. FIDO2 / TouchID / Security Key without passwords.
               </Typography>
 
+              {/* Role Combo Selector */}
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="fido-card-role-label">Test Role</InputLabel>
+                  <Select
+                    labelId="fido-card-role-label"
+                    label="Test Role"
+                    value={fidoCardRole}
+                    onChange={(e) => setFidoCardRole(e.target.value)}
+                    sx={{ borderRadius: 1.5 }}
+                  >
+                    <MenuItem value="user">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="user" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Standard User</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="tenant">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="tenant" color="warning" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Tenant Manager</Typography>
+                      </Box>
+                    </MenuItem>
+                    <MenuItem value="admin">
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Chip label="admin" color="error" size="small" sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }} />
+                        <Typography variant="body2">Administrator</Typography>
+                      </Box>
+                    </MenuItem>
+                  </Select>
+                </FormControl>
+              </Box>
+
               <Paper
                 variant="outlined"
                 sx={{
                   p: 1.5,
-                  mt: 2,
+                  mt: 1,
                   backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)',
                   fontSize: '0.75rem',
                 }}
@@ -804,7 +906,7 @@ export const AuthFlowScreen = ({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Test User:</Typography>
                   <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="info.main">
-                    {config.clientId}.user.fido2
+                    {config.clientId}.{fidoCardRole}.fido2
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
@@ -831,14 +933,14 @@ export const AuthFlowScreen = ({
                 onClick={() =>
                   launchLiveOidcFlow({
                     acrValue: 'pfa',
-                    flowLabel: 'PFA Passwordless WebAuthn',
+                    flowLabel: `PFA Passwordless WebAuthn (${fidoCardRole})`,
                     factorLevel: 'pfa',
-                    loginHint: `${config.clientId}.user.fido2`,
+                    loginHint: `${config.clientId}.${fidoCardRole}.fido2`,
                     prompt: 'login',
                   })
                 }
               >
-                Launch WebAuthn Flow ({config.clientId}.user.fido2)
+                Launch WebAuthn Flow ({config.clientId}.{fidoCardRole}.fido2)
               </Button>
             </CardActions>
           </Card>
@@ -1124,7 +1226,23 @@ export const AuthFlowScreen = ({
 
         {directError && (
           <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
-            {directError}
+            <Typography variant="body2" fontWeight={700}>
+              {directError}
+            </Typography>
+            {(directError.toLowerCase().includes('account is not fully set up') ||
+              directError.toLowerCase().includes('invalid character')) && (
+              <Box sx={{ mt: 1, pt: 1, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                <Typography variant="caption" display="block" sx={{ fontWeight: 600 }}>
+                  💡 Cause &amp; Resolution:
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Keycloak's User Profile validator restricts prohibited characters (such as parentheses <code>( )</code>) in the user's <strong>First Name</strong>, which marks the account as incomplete and requires a profile update.
+                </Typography>
+                <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                  The realm generator in <strong>Setup &amp; Config &gt; Keycloak Setup Guide</strong> has now been updated to use clean names without special characters (e.g. <code>Call Recording User</code>). Re-download/import the realm JSON, or update the First Name in Keycloak Admin Console (Users &gt; Details) and verify email.
+                </Typography>
+              </Box>
+            )}
           </Alert>
         )}
       </Paper>
