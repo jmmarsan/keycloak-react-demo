@@ -36,7 +36,8 @@ export const AuthFlowScreen = ({
 }) => {
   const theme = useTheme();
   const [showConfig, setShowConfig] = useState(false);
-  const [directUsername, setDirectUsername] = useState('alex.sfa');
+  const [directFactorLevel, setDirectFactorLevel] = useState('pfa');
+  const [directUsername, setDirectUsername] = useState('morgan.pfa');
   const [directPassword, setDirectPassword] = useState('password123');
   const [directOtp, setDirectOtp] = useState('');
   const [isDirectLoading, setIsDirectLoading] = useState(false);
@@ -66,8 +67,18 @@ export const AuthFlowScreen = ({
     refreshPkcePreview();
   }, []);
 
-  // Direct Grant Factor selection
-  const [directFactorLevel, setDirectFactorLevel] = useState('pfa');
+  // Switch Direct Grant target factor level and corresponding test user
+  const handleSelectDirectFactorLevel = (level) => {
+    setDirectFactorLevel(level);
+    if (level === 'pfa') {
+      setDirectUsername('morgan.pfa');
+      setDirectPassword('password123');
+    } else {
+      setDirectUsername('alex.sfa');
+      setDirectPassword('password123');
+      setDirectOtp('');
+    }
+  };
 
   // Launch live OIDC PKCE flow
   const launchLiveOidcFlow = async (options) => {
@@ -134,6 +145,7 @@ export const AuthFlowScreen = ({
 
       const isPfa =
         directFactorLevel === 'pfa' ||
+        directUsername.toLowerCase().includes('pfa') ||
         Boolean(directOtp) ||
         String(tokenAcr).includes('2') ||
         String(tokenAcr).includes('pfa');
@@ -686,19 +698,19 @@ export const AuthFlowScreen = ({
             size="small"
             variant={directFactorLevel === 'pfa' ? 'contained' : 'outlined'}
             color="success"
-            onClick={() => setDirectFactorLevel('pfa')}
-            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none' }}
+            onClick={() => handleSelectDirectFactorLevel('pfa')}
+            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
           >
-            PFA (LoA 2 / MFA)
+            PFA (LoA 2 / MFA) • morgan.pfa
           </Button>
           <Button
             size="small"
             variant={directFactorLevel === 'sfa' ? 'contained' : 'outlined'}
             color="warning"
-            onClick={() => setDirectFactorLevel('sfa')}
-            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none' }}
+            onClick={() => handleSelectDirectFactorLevel('sfa')}
+            sx={{ height: 26, fontSize: '0.75rem', textTransform: 'none', fontWeight: 600 }}
           >
-            SFA (LoA 1 / Password)
+            SFA (LoA 1 / Password) • alex.sfa
           </Button>
         </Box>
 
@@ -711,6 +723,7 @@ export const AuthFlowScreen = ({
                 label="Username"
                 value={directUsername}
                 onChange={(e) => setDirectUsername(e.target.value)}
+                helperText={directFactorLevel === 'pfa' ? 'PFA User (MFA / LoA 2)' : 'SFA User (Password / LoA 1)'}
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -721,6 +734,7 @@ export const AuthFlowScreen = ({
                 label="Password"
                 value={directPassword}
                 onChange={(e) => setDirectPassword(e.target.value)}
+                helperText="Default: password123"
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -731,6 +745,7 @@ export const AuthFlowScreen = ({
                 placeholder="123456"
                 value={directOtp}
                 onChange={(e) => setDirectOtp(e.target.value)}
+                helperText={directFactorLevel === 'pfa' ? 'Leave empty or enter TOTP' : 'Not required for SFA'}
               />
             </Grid>
             <Grid item xs={12} sm={3}>
@@ -740,9 +755,10 @@ export const AuthFlowScreen = ({
                 type="submit"
                 disabled={isDirectLoading}
                 startIcon={<SendIcon />}
-                sx={{ height: 40 }}
+                color={directFactorLevel === 'pfa' ? 'success' : 'warning'}
+                sx={{ height: 40, fontWeight: 700 }}
               >
-                {isDirectLoading ? 'Authenticating...' : 'Send Direct Token Request'}
+                {isDirectLoading ? 'Authenticating...' : `Request Token (${directUsername})`}
               </Button>
             </Grid>
           </Grid>
