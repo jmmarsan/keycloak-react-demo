@@ -14,6 +14,7 @@ import ShieldIcon from '@mui/icons-material/Shield';
 import SecurityIcon from '@mui/icons-material/Security';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import StorageIcon from '@mui/icons-material/Storage';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
@@ -101,19 +102,29 @@ export const Header = ({
           {/* Current Session Chip */}
           {session ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Chip
-                icon={
-                  session.factorLevel === 'pfa' ? (
-                    <VerifiedUserIcon fontSize="small" />
-                  ) : (
-                    <WarningAmberIcon fontSize="small" />
-                  )
-                }
-                label={`${session.factorLevel.toUpperCase()} Session`}
-                color={session.factorLevel === 'pfa' ? 'success' : 'warning'}
-                size="small"
-                sx={{ fontWeight: 700 }}
-              />
+              {(() => {
+                const isWebAuthn =
+                  session.factorSubtype === 'webauthn' ||
+                  session.amr?.some((m) => ['webauthn', 'fido', 'passkey', 'hwk'].includes(String(m).toLowerCase())) ||
+                  session.user?.username?.toLowerCase().includes('webauthn');
+                return (
+                  <Chip
+                    icon={
+                      isWebAuthn ? (
+                        <FingerprintIcon fontSize="small" />
+                      ) : session.factorLevel === 'pfa' ? (
+                        <VerifiedUserIcon fontSize="small" />
+                      ) : (
+                        <WarningAmberIcon fontSize="small" />
+                      )
+                    }
+                    label={isWebAuthn ? 'PFA: Passkey' : `${session.factorLevel.toUpperCase()} Session`}
+                    color={isWebAuthn ? 'info' : session.factorLevel === 'pfa' ? 'success' : 'warning'}
+                    size="small"
+                    sx={{ fontWeight: 700 }}
+                  />
+                );
+              })()}
 
               <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
                 <Typography variant="caption" fontWeight={600} display="block">

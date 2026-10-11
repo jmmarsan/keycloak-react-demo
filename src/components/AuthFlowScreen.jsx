@@ -97,13 +97,19 @@ export const AuthFlowScreen = ({
     sessionStorage.setItem('kc_flow_label', options.flowLabel);
     sessionStorage.setItem('kc_flow_factor', factorLevel);
     sessionStorage.setItem('kc_requested_acr', options.acrValue || '');
+    if (options.loginHint) {
+      sessionStorage.setItem('kc_login_hint', options.loginHint);
+    } else {
+      sessionStorage.removeItem('kc_login_hint');
+    }
 
     const authUrl = buildAuthorizeUrl(config, {
       codeChallenge,
       state,
       nonce,
       acrValue: options.acrValue,
-      prompt: options.prompt,
+      prompt: options.prompt || 'login',
+      loginHint: options.loginHint,
     });
 
     onLogAudit({
@@ -111,9 +117,9 @@ export const AuthFlowScreen = ({
       timestamp: new Date().toLocaleTimeString(),
       type: 'AUTH_START',
       title: `Initiated ${options.flowLabel} (PKCE)`,
-      detail: `Opening authorization URL with acr_values="${options.acrValue || 'none'}" [Expected: ${factorLevel.toUpperCase()}]`,
+      detail: `Opening authorization URL with acr_values="${options.acrValue || 'none'}"${options.loginHint ? ` [Target: ${options.loginHint}]` : ''} [Expected: ${factorLevel.toUpperCase()}]`,
       status: 'info',
-      payload: { authUrl, codeChallenge, state, factorLevel },
+      payload: { authUrl, codeChallenge, state, factorLevel, targetUser: options.loginHint },
     });
 
     const popupWidth = 600;
@@ -162,21 +168,23 @@ export const AuthFlowScreen = ({
       const factorLevel = isPfa ? 'pfa' : 'sfa';
       const acr = tokenAcr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
 
+      const factorSubtype = isWebAuthn ? 'webauthn' : (isPfa ? 'totp' : 'sfa');
       let factorTypeDescription = 'Single-Factor (Direct Grant Username/Password)';
       let amr = ['pwd'];
       if (isWebAuthn) {
-        factorTypeDescription = 'Protected Factor (Direct Grant WebAuthn/Passkey User)';
+        factorTypeDescription = 'Protected Factor: Passkey / WebAuthn (Direct Grant sam.webauthn • LoA 2)';
         amr = ['webauthn', 'pwd'];
       } else if (isPfa) {
         factorTypeDescription = directOtp
-          ? 'Protected Factor (Direct Grant with OTP)'
-          : 'Protected Factor (Direct Grant PFA Mode)';
+          ? 'Protected Factor: Step-Up MFA (Direct Grant with OTP • LoA 2)'
+          : 'Protected Factor (Direct Grant PFA Mode • LoA 2)';
         amr = ['pwd', 'otp'];
       }
 
       const newSession = {
         isAuthenticated: true,
         factorLevel,
+        factorSubtype,
         factorTypeDescription,
         user: {
           id: accessPayload.sub || idPayload.sub || 'user-id',
@@ -230,9 +238,18 @@ export const AuthFlowScreen = ({
           sx={{
             p: 2.5,
             borderRadius: 3,
-            borderColor: session.factorLevel === 'pfa' ? 'success.main' : 'warning.main',
+            borderColor:
+              session.factorSubtype === 'webauthn' ||
+              session.user?.username?.toLowerCase().includes('webauthn')
+                ? 'info.main'
+                : session.factorLevel === 'pfa'
+                ? 'success.main'
+                : 'warning.main',
             backgroundColor:
-              session.factorLevel === 'pfa'
+              session.factorSubtype === 'webauthn' ||
+              session.user?.username?.toLowerCase().includes('webauthn')
+                ? 'rgba(2, 132, 199, 0.06)'
+                : session.factorLevel === 'pfa'
                 ? theme.palette.mode === 'dark'
                   ? 'rgba(16, 185, 129, 0.08)'
                   : 'rgba(16, 185, 129, 0.05)'
@@ -252,14 +269,33 @@ export const AuthFlowScreen = ({
                 width: 44,
                 height: 44,
                 borderRadius: 2.5,
-                backgroundColor: session.factorLevel === 'pfa' ? 'success.light' : 'warning.light',
-                color: session.factorLevel === 'pfa' ? 'success.dark' : 'warning.dark',
+                backgroundColor:
+                  session.factorSubtype === 'webauthn' ||
+                  session.user?.username?.toLowerCase().includes('webauthn')
+                    ? 'info.light'
+                    : session.factorLevel === 'pfa'
+                    ? 'success.light'
+                    : 'warning.light',
+                color:
+                  session.factorSubtype === 'webauthn' ||
+                  session.user?.username?.toLowerCase().includes('webauthn')
+                    ? 'info.dark'
+                    : session.factorLevel === 'pfa'
+                    ? 'success.dark'
+                    : 'warning.dark',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {session.factorLevel === 'pfa' ? <VerifiedUserIcon /> : <VpnKeyIcon />}
+              {session.factorSubtype === 'webauthn' ||
+              session.user?.username?.toLowerCase().includes('webauthn') ? (
+                <FingerprintIcon />
+              ) : session.factorLevel === 'pfa' ? (
+                <VerifiedUserIcon />
+              ) : (
+                <VpnKeyIcon />
+              )}
             </Box>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -267,8 +303,22 @@ export const AuthFlowScreen = ({
                   Active Session:
                 </Typography>
                 <Chip
-                  label={session.factorLevel === 'pfa' ? 'PFA Active (LoA 2)' : 'SFA Active (LoA 1)'}
-                  color={session.factorLevel === 'pfa' ? 'success' : 'warning'}
+                  label={
+                    session.factorSubtype === 'webauthn' ||
+                    session.user?.username?.toLowerCase().includes('webauthn')
+                      ? 'PFA: Passkey / WebAuthn (LoA 2)'
+                      : session.factorLevel === 'pfa'
+                      ? 'PFA Active (LoA 2)'
+                      : 'SFA Active (LoA 1)'
+                  }
+                  color={
+                    session.factorSubtype === 'webauthn' ||
+                    session.user?.username?.toLowerCase().includes('webauthn')
+                      ? 'info'
+                      : session.factorLevel === 'pfa'
+                      ? 'success'
+                      : 'warning'
+                  }
                   size="small"
                   sx={{ fontWeight: 700 }}
                 />
@@ -285,7 +335,14 @@ export const AuthFlowScreen = ({
             <Button
               size="small"
               variant="contained"
-              color={session.factorLevel === 'pfa' ? 'success' : 'primary'}
+              color={
+                session.factorSubtype === 'webauthn' ||
+                session.user?.username?.toLowerCase().includes('webauthn')
+                  ? 'info'
+                  : session.factorLevel === 'pfa'
+                  ? 'success'
+                  : 'primary'
+              }
               onClick={() => onSessionCreated && onSessionCreated(session, 'Inspect')}
             >
               Inspect Tokens &amp; Claims
@@ -511,6 +568,8 @@ export const AuthFlowScreen = ({
                     acrValue: config.sfaAcrValue,
                     flowLabel: 'SFA Standard Login',
                     factorLevel: 'sfa',
+                    loginHint: 'alex.sfa',
+                    prompt: 'login',
                   })
                 }
               >
@@ -601,6 +660,8 @@ export const AuthFlowScreen = ({
                     acrValue: 'pfa',
                     flowLabel: 'PFA Passwordless WebAuthn',
                     factorLevel: 'pfa',
+                    loginHint: 'sam.webauthn',
+                    prompt: 'login',
                   })
                 }
               >
@@ -691,6 +752,8 @@ export const AuthFlowScreen = ({
                     acrValue: config.pfaAcrValue,
                     flowLabel: 'PFA Step-Up MFA (LoA 2)',
                     factorLevel: 'pfa',
+                    loginHint: 'morgan.pfa',
+                    prompt: 'login',
                   })
                 }
               >

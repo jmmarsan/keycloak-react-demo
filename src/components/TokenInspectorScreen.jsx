@@ -24,6 +24,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SecurityIcon from '@mui/icons-material/Security';
 import CodeIcon from '@mui/icons-material/Code';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
 
 export const TokenInspectorScreen = ({
   session,
@@ -98,6 +99,19 @@ export const TokenInspectorScreen = ({
   }
 
   const isPfa = session.factorLevel === 'pfa';
+  const isWebAuthn =
+    session.factorSubtype === 'webauthn' ||
+    session.amr?.some((m) => ['webauthn', 'fido', 'passkey', 'hwk'].includes(String(m).toLowerCase())) ||
+    session.user?.username?.toLowerCase().includes('webauthn') ||
+    session.factorTypeDescription?.toLowerCase().includes('webauthn') ||
+    session.factorTypeDescription?.toLowerCase().includes('passkey');
+
+  const isOtpMfa =
+    !isWebAuthn &&
+    (session.factorSubtype === 'totp' ||
+      session.amr?.some((m) => ['otp', 'totp', 'sms'].includes(String(m).toLowerCase())) ||
+      session.user?.username?.toLowerCase().includes('pfa'));
+
   const decodedPayload =
     activeTokenTab === 'id'
       ? session.decodedIdToken?.payload
@@ -108,6 +122,27 @@ export const TokenInspectorScreen = ({
       ? session.tokens?.id_token || 'No ID Token'
       : session.tokens?.access_token || '';
 
+  const bannerBorderColor = isWebAuthn
+    ? 'info.main'
+    : isPfa
+    ? 'success.main'
+    : 'warning.main';
+
+  const bannerBackground = isWebAuthn
+    ? theme.palette.mode === 'dark'
+      ? 'linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(15, 23, 42, 0.4))'
+      : 'linear-gradient(135deg, rgba(2, 132, 199, 0.08), rgba(255, 255, 255, 0.8))'
+    : isPfa
+    ? theme.palette.mode === 'dark'
+      ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.4))'
+      : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.8))'
+    : theme.palette.mode === 'dark'
+    ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.4))'
+    : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0.8))';
+
+  const iconBg = isWebAuthn ? 'info.light' : isPfa ? 'success.light' : 'warning.light';
+  const iconColor = isWebAuthn ? 'info.dark' : isPfa ? 'success.dark' : 'warning.dark';
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Session Assurance Banner */}
@@ -116,15 +151,8 @@ export const TokenInspectorScreen = ({
         sx={{
           p: 3,
           borderRadius: 3,
-          borderColor: isPfa ? 'success.main' : 'warning.main',
-          background:
-            isPfa
-              ? theme.palette.mode === 'dark'
-                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.4))'
-                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.8))'
-              : theme.palette.mode === 'dark'
-              ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.4))'
-              : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0.8))',
+          borderColor: bannerBorderColor,
+          background: bannerBackground,
         }}
       >
         <Box
@@ -142,27 +170,56 @@ export const TokenInspectorScreen = ({
                 width: 52,
                 height: 52,
                 borderRadius: 3,
-                backgroundColor: isPfa ? 'success.light' : 'warning.light',
-                color: isPfa ? 'success.dark' : 'warning.dark',
+                backgroundColor: iconBg,
+                color: iconColor,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              {isPfa ? <VerifiedUserIcon sx={{ fontSize: 32 }} /> : <WarningAmberIcon sx={{ fontSize: 32 }} />}
+              {isWebAuthn ? (
+                <FingerprintIcon sx={{ fontSize: 32 }} />
+              ) : isPfa ? (
+                <VerifiedUserIcon sx={{ fontSize: 32 }} />
+              ) : (
+                <WarningAmberIcon sx={{ fontSize: 32 }} />
+              )}
             </Box>
 
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant="h6" fontWeight={800}>
-                  {isPfa ? 'PFA: Protected Factor Session' : 'SFA: Single-Factor Session'}
+                  {isWebAuthn
+                    ? 'PFA: Passkey / WebAuthn Session'
+                    : isOtpMfa
+                    ? 'PFA: Step-Up MFA Session'
+                    : isPfa
+                    ? 'PFA: Protected Factor Session'
+                    : 'SFA: Single-Factor Session'}
                 </Typography>
                 <Chip
-                  label={isPfa ? 'High Assurance (LoA 2 / PFA)' : 'Standard Assurance (LoA 1 / SFA)'}
-                  color={isPfa ? 'success' : 'warning'}
+                  label={
+                    isWebAuthn
+                      ? 'High Assurance (Passkey / WebAuthn • LoA 2)'
+                      : isOtpMfa
+                      ? 'High Assurance (Step-Up MFA • LoA 2)'
+                      : isPfa
+                      ? 'High Assurance (LoA 2 / PFA)'
+                      : 'Standard Assurance (LoA 1 / SFA)'
+                  }
+                  color={isWebAuthn ? 'info' : isPfa ? 'success' : 'warning'}
                   size="small"
                   sx={{ fontWeight: 700 }}
                 />
+                {session.user?.username && (
+                  <Chip
+                    label={`User: ${session.user.username}`}
+                    size="small"
+                    variant="outlined"
+                    color={isWebAuthn ? 'info' : isPfa ? 'success' : 'default'}
+                    sx={{ fontWeight: 700, fontFamily: 'monospace' }}
+                  />
+                )}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 {session.factorTypeDescription}
@@ -191,7 +248,7 @@ export const TokenInspectorScreen = ({
                   label={session.acr || 'standard'}
                   size="small"
                   variant="outlined"
-                  color={isPfa ? 'success' : 'warning'}
+                  color={isWebAuthn ? 'info' : isPfa ? 'success' : 'warning'}
                   sx={{ fontFamily: 'monospace', height: 20, fontSize: '0.7rem' }}
                 />
               </Box>
@@ -203,8 +260,8 @@ export const TokenInspectorScreen = ({
               <>
                 <Chip
                   icon={<CheckIcon fontSize="small" />}
-                  label="PFA (LoA 2) Satisfied"
-                  color="success"
+                  label={isWebAuthn ? 'WebAuthn (LoA 2) Satisfied' : 'PFA (LoA 2) Satisfied'}
+                  color={isWebAuthn ? 'info' : 'success'}
                   sx={{ fontWeight: 700 }}
                 />
                 {onToggleFactorLevel && (

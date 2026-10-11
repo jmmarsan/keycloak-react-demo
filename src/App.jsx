@@ -286,26 +286,51 @@ export default function App() {
     // If either token claims OR the executed login flow indicated PFA, set factorLevel to 'pfa'
     const isPfa = flowFactor === 'pfa' || tokenIndicatesPfa;
 
+    const username = accessPayload.preferred_username || idPayload.preferred_username || 'keycloak-user';
+
+    const isWebAuthn =
+      amr.some((m) => ['webauthn', 'fido', 'passkey', 'hwk'].includes(String(m).toLowerCase())) ||
+      username.toLowerCase().includes('webauthn') ||
+      (flowLabel && flowLabel.toLowerCase().includes('webauthn'));
+
+    const isOtpMfa =
+      !isWebAuthn &&
+      (amr.some((m) => ['otp', 'totp', 'sms'].includes(String(m).toLowerCase())) ||
+        username.toLowerCase().includes('pfa'));
+
     const factorLevel = isPfa ? 'pfa' : 'sfa';
-    const factorTypeDescription = isPfa
-      ? (tokenIndicatesPfa
+    let factorSubtype = 'sfa';
+    let factorTypeDescription = 'Single-Factor (SFA / LoA 1 - Username and Password)';
+
+    if (isPfa) {
+      if (isWebAuthn) {
+        factorSubtype = 'webauthn';
+        factorTypeDescription = 'Protected Factor: Passkey / WebAuthn (FIDO2 Passwordless • LoA 2)';
+      } else if (isOtpMfa) {
+        factorSubtype = 'totp';
+        factorTypeDescription = 'Protected Factor: Step-Up MFA (Password + TOTP • LoA 2)';
+      } else {
+        factorSubtype = 'pfa';
+        factorTypeDescription = tokenIndicatesPfa
           ? 'Protected Factor (PFA / LoA 2 - Verified by Token Claims)'
-          : 'Protected Factor (PFA / LoA 2 - Satisfied via Keycloak PFA Flow & acr_values)')
-      : 'Single-Factor (SFA / LoA 1 - Username and Password)';
+          : 'Protected Factor (PFA / LoA 2 - Satisfied via Keycloak PFA Flow & acr_values)';
+      }
+    }
 
     // Ensure display acr & amr reflect the active assurance level
     const displayAcr = acr || (isPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'));
-    const displayAmr = amr.length > 0 ? amr : (isPfa ? ['pwd', 'otp'] : ['pwd']);
+    const displayAmr = amr.length > 0 ? amr : (isPfa ? (isWebAuthn ? ['webauthn'] : ['pwd', 'otp']) : ['pwd']);
 
     const newSession = {
       isAuthenticated: true,
       factorLevel,
+      factorSubtype,
       factorTypeDescription,
       user: {
         id: accessPayload.sub || idPayload.sub || 'user-id',
-        username: accessPayload.preferred_username || idPayload.preferred_username || 'keycloak-user',
-        email: accessPayload.email || idPayload.email || 'user@example.com',
-        name: accessPayload.name || idPayload.name || accessPayload.preferred_username || 'User',
+        username,
+        email: accessPayload.email || idPayload.email || `${username}@example.com`,
+        name: accessPayload.name || idPayload.name || accessPayload.preferred_username || username,
         roles: accessPayload.realm_access?.roles || ['user'],
       },
       tokens,
@@ -489,14 +514,18 @@ export default function App() {
     const isNowPfa = nextLevel === 'pfa';
     setSession((prev) => {
       if (!prev) return null;
+      const isWebAuthn = prev.factorSubtype === 'webauthn' || prev.user?.username?.toLowerCase().includes('webauthn');
       return {
         ...prev,
         factorLevel: nextLevel,
+        factorSubtype: isNowPfa ? (isWebAuthn ? 'webauthn' : 'pfa') : 'sfa',
         factorTypeDescription: isNowPfa
-          ? 'Protected Factor (PFA / LoA 2 - High Assurance Active)'
+          ? (isWebAuthn
+              ? 'Protected Factor: Passkey / WebAuthn (Simulated LoA 2)'
+              : 'Protected Factor (PFA / LoA 2 - High Assurance Active)')
           : 'Single-Factor (SFA / LoA 1 - Username and Password Active)',
         acr: isNowPfa ? (config.pfaAcrValue || 'loa-2') : (config.sfaAcrValue || 'loa-1'),
-        amr: isNowPfa ? ['pwd', 'otp'] : ['pwd'],
+        amr: isNowPfa ? (isWebAuthn ? ['webauthn'] : ['pwd', 'otp']) : ['pwd'],
       };
     });
 
