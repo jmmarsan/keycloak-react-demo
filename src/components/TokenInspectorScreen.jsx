@@ -1,17 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, 
-  ShieldAlert, 
-  FileCode, 
-  RefreshCw, 
-  Copy, 
-  Check, 
-  Clock, 
-  ArrowUpRight, 
-  Key, 
-  User, 
-  Layers 
-} from 'lucide-react';
+import {
+  Box,
+  Grid,
+  Paper,
+  Typography,
+  Chip,
+  Button,
+  IconButton,
+  LinearProgress,
+  Tabs,
+  Tab,
+  Tooltip,
+  Divider,
+  useTheme,
+} from '@mui/material';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import SecurityIcon from '@mui/icons-material/Security';
+import CodeIcon from '@mui/icons-material/Code';
 
 export const TokenInspectorScreen = ({
   session,
@@ -19,6 +31,7 @@ export const TokenInspectorScreen = ({
   onStepUp,
   onGoToConsole,
 }) => {
+  const theme = useTheme();
   const [copiedKey, setCopiedKey] = useState(null);
   const [activeTokenTab, setActiveTokenTab] = useState('access');
   const [timeLeftSeconds, setTimeLeftSeconds] = useState(300);
@@ -42,22 +55,44 @@ export const TokenInspectorScreen = ({
 
   if (!session) {
     return (
-      <div className="max-w-4xl mx-auto py-16 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-500">
-          <FileCode className="w-8 h-8" />
-        </div>
-        <h2 className="text-xl font-bold text-white">No Active Authentication Session</h2>
-        <p className="text-sm text-slate-400 max-w-md mx-auto">
-          Please log in using SFA or PFA on the Testing Console to inspect ID and Access Tokens, claims, and assurance levels.
-        </p>
-        <button
-          type="button"
-          onClick={onGoToConsole}
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors shadow-lg shadow-indigo-600/20"
+      <Paper
+        variant="outlined"
+        sx={{
+          py: 10,
+          px: 3,
+          textAlign: 'center',
+          borderRadius: 4,
+          maxWidth: 600,
+          mx: 'auto',
+          mt: 4,
+        }}
+      >
+        <Box
+          sx={{
+            width: 64,
+            height: 64,
+            borderRadius: 3,
+            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mx: 'auto',
+            mb: 2,
+            color: 'text.secondary',
+          }}
         >
+          <CodeIcon sx={{ fontSize: 36 }} />
+        </Box>
+        <Typography variant="h6" fontWeight={700} gutterBottom>
+          No Active Authentication Session
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 440, mx: 'auto' }}>
+          Log in with Single-Factor or PFA in the Testing Console to inspect ID and Access Tokens, AMR/ACR assurance metrics, and token lifetimes.
+        </Typography>
+        <Button variant="contained" color="primary" onClick={onGoToConsole}>
           Go to Testing Console
-        </button>
-      </div>
+        </Button>
+      </Paper>
     );
   }
 
@@ -69,300 +104,293 @@ export const TokenInspectorScreen = ({
 
   const rawTokenString =
     activeTokenTab === 'id'
-      ? session.tokens.id_token || 'No ID Token'
-      : session.tokens.access_token;
+      ? session.tokens?.id_token || 'No ID Token'
+      : session.tokens?.access_token || '';
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-4">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Session Assurance Banner */}
-      <div
-        className={`p-6 rounded-2xl border shadow-xl transition-all ${
-          isPfa
-            ? 'bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border-emerald-500/30'
-            : 'bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border-amber-500/30'
-        }`}
+      <Paper
+        variant="outlined"
+        sx={{
+          p: 3,
+          borderRadius: 3,
+          borderColor: isPfa ? 'success.main' : 'warning.main',
+          background:
+            isPfa
+              ? theme.palette.mode === 'dark'
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(15, 23, 42, 0.4))'
+                : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(255, 255, 255, 0.8))'
+              : theme.palette.mode === 'dark'
+              ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(15, 23, 42, 0.4))'
+              : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0.8))',
+        }}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="flex items-start space-x-4">
-            <div
-              className={`p-3 rounded-2xl ${
-                isPfa ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
-              }`}
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            justifyContent: 'space-between',
+            alignItems: { xs: 'flex-start', md: 'center' },
+            gap: 2,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            <Box
+              sx={{
+                width: 52,
+                height: 52,
+                borderRadius: 3,
+                backgroundColor: isPfa ? 'success.light' : 'warning.light',
+                color: isPfa ? 'success.dark' : 'warning.dark',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
             >
-              {isPfa ? <ShieldCheck className="w-8 h-8" /> : <ShieldAlert className="w-8 h-8" />}
-            </div>
+              {isPfa ? <VerifiedUserIcon sx={{ fontSize: 32 }} /> : <WarningAmberIcon sx={{ fontSize: 32 }} />}
+            </Box>
 
-            <div className="space-y-1">
-              <div className="flex items-center space-x-2">
-                <h2 className="text-xl font-bold text-white">
-                  {isPfa
-                    ? 'PFA: Protected Factor Authentication Session'
-                    : 'SFA: Single-Factor Authentication Session'}
-                </h2>
-                <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                    isPfa
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                  }`}
-                >
-                  {isPfa ? 'High Assurance (LoA 2 / PFA)' : 'Standard Assurance (LoA 1 / SFA)'}
-                </span>
-              </div>
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h6" fontWeight={800}>
+                  {isPfa ? 'PFA: Protected Factor Session' : 'SFA: Single-Factor Session'}
+                </Typography>
+                <Chip
+                  label={isPfa ? 'High Assurance (LoA 2 / PFA)' : 'Standard Assurance (LoA 1 / SFA)'}
+                  color={isPfa ? 'success' : 'warning'}
+                  size="small"
+                  sx={{ fontWeight: 700 }}
+                />
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {session.factorTypeDescription}
+              </Typography>
 
-              <p className="text-xs text-slate-300">{session.factorTypeDescription}</p>
-
-              {/* Claims highlight */}
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <span className="text-xs text-slate-400">AMR (Methods):</span>
+              {/* Claims tags */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                <Typography variant="caption" color="text.secondary">AMR (Methods):</Typography>
                 {session.amr && session.amr.length > 0 ? (
                   session.amr.map((method) => (
-                    <span
+                    <Chip
                       key={method}
-                      className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-cyan-300"
-                    >
-                      {method}
-                    </span>
+                      label={method}
+                      size="small"
+                      variant="outlined"
+                      color="secondary"
+                      sx={{ fontFamily: 'monospace', height: 20, fontSize: '0.7rem' }}
+                    />
                   ))
                 ) : (
-                  <span className="text-xs text-slate-500">None</span>
+                  <Typography variant="caption" color="text.secondary">none</Typography>
                 )}
 
-                <span className="text-xs text-slate-400 ml-3">ACR (Assurance):</span>
-                <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-xs font-mono text-emerald-300">
-                  {session.acr || 'standard'}
-                </span>
-              </div>
-            </div>
-          </div>
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>ACR (Assurance):</Typography>
+                <Chip
+                  label={session.acr || 'standard'}
+                  size="small"
+                  variant="outlined"
+                  color={isPfa ? 'success' : 'warning'}
+                  sx={{ fontFamily: 'monospace', height: 20, fontSize: '0.7rem' }}
+                />
+              </Box>
+            </Box>
+          </Box>
 
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <Box sx={{ display: 'flex', gap: 1 }}>
             {!isPfa && (
-              <button
-                type="button"
+              <Button
+                variant="contained"
+                color="success"
+                startIcon={<ArrowUpwardIcon />}
                 onClick={onStepUp}
-                className="flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-xs transition-all shadow-lg shadow-emerald-600/20"
               >
-                <ArrowUpRight className="w-4 h-4" />
-                <span>Elevate to PFA (Step-Up)</span>
-              </button>
+                Elevate to PFA
+              </Button>
             )}
 
-            <button
-              type="button"
+            <Button
+              variant="outlined"
+              color="inherit"
+              startIcon={<RefreshIcon />}
               onClick={onRefresh}
-              className="flex items-center justify-center space-x-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition-colors"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Token</span>
-            </button>
-          </div>
-        </div>
+              Refresh Token
+            </Button>
+          </Box>
+        </Box>
 
-        {/* Expiration Bar */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center space-x-2 text-slate-400">
-            <Clock className="w-4 h-4 text-slate-400" />
-            <span>
-              Access Token Lifetime:{' '}
-              <strong className="text-white font-mono">{timeLeftSeconds}s</strong> remaining
-            </span>
-          </div>
+        {/* Lifetime countdown */}
+        <Box sx={{ mt: 3, pt: 2, borderTop: `1px solid ${theme.palette.divider}` }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <AccessTimeIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+              <Typography variant="caption" color="text.secondary">
+                Access Token Lifetime: <strong>{timeLeftSeconds}s</strong> remaining
+              </Typography>
+            </Box>
+            <Typography variant="caption" fontFamily="monospace">
+              exp: {session.decodedAccessToken?.payload?.exp || 'N/A'}
+            </Typography>
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={Math.min(100, (timeLeftSeconds / 300) * 100)}
+            color={timeLeftSeconds < 60 ? 'error' : 'primary'}
+            sx={{ height: 6, borderRadius: 3 }}
+          />
+        </Box>
+      </Paper>
 
-          <div className="w-full sm:w-64 bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-1000 ${
-                timeLeftSeconds < 60 ? 'bg-red-500' : 'bg-indigo-500'
-              }`}
-              style={{ width: `${Math.min(100, (timeLeftSeconds / 300) * 100)}%` }}
-            />
-          </div>
-        </div>
-      </div>
+      {/* User info grid */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={4}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <AccountCircleIcon color="primary" sx={{ fontSize: 36 }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary">Subject (sub)</Typography>
+              <Typography variant="body2" fontWeight={700}>{session.user.name}</Typography>
+              <Typography variant="caption" color="text.secondary" fontFamily="monospace">{session.user.email}</Typography>
+            </Box>
+          </Paper>
+        </Grid>
 
-      {/* User Identity Details & Roles */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-            <User className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-slate-400 block text-[11px]">User Subject (sub)</span>
-            <span className="font-semibold text-white text-sm">{session.user.name}</span>
-            <span className="font-mono text-slate-400 text-[11px] block">{session.user.email}</span>
-          </div>
-        </div>
+        <Grid item xs={12} sm={4}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SecurityIcon color="secondary" sx={{ fontSize: 36 }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary">Assigned Roles</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                {session.user.roles?.map((role) => (
+                  <Chip key={role} label={role} size="small" sx={{ height: 18, fontSize: '0.65rem' }} />
+                ))}
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-slate-400 block text-[11px]">Assigned Roles</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {session.user.roles.map((role) => (
-                <span
-                  key={role}
-                  className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[10px]"
-                >
-                  {role}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
+        <Grid item xs={12} sm={4}>
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <CodeIcon color="info" sx={{ fontSize: 36 }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary">Keycloak Realm Issuer</Typography>
+              <Typography variant="body2" fontWeight={700}>Local Keycloak</Typography>
+              <Typography variant="caption" color="text.secondary" fontFamily="monospace" sx={{ wordBreak: 'break-all' }}>
+                {session.decodedAccessToken?.payload?.iss || 'http://localhost:8080'}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
 
-        <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
-            <Key className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-slate-400 block text-[11px]">Identity Provider & Issuer</span>
-            <span className="font-medium text-slate-200">
-              Local Keycloak
-            </span>
-            <span className="font-mono text-slate-400 text-[11px] block truncate max-w-[200px]">
-              {session.decodedAccessToken?.payload?.iss || 'http://localhost:8080'}
-            </span>
-          </div>
-        </div>
-      </div>
+      {/* Token Decoded Claims Tabs */}
+      <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Box sx={{ borderBottom: `1px solid ${theme.palette.divider}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2 }}>
+          <Tabs value={activeTokenTab} onChange={(e, val) => setActiveTokenTab(val)}>
+            <Tab value="access" label="Access Token Claims" />
+            <Tab value="id" label="ID Token (User Info)" />
+            <Tab value="raw" label="Raw Encoded JWT" />
+          </Tabs>
 
-      {/* Token Tabs & Claims Viewer */}
-      <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-3 bg-slate-950/60">
-          <div className="flex space-x-2">
-            <button
-              type="button"
-              onClick={() => setActiveTokenTab('access')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                activeTokenTab === 'access'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+          <Tooltip title="Copy Token to Clipboard">
+            <Button
+              size="small"
+              startIcon={copiedKey === 'raw-token' ? <CheckIcon color="success" /> : <ContentCopyIcon />}
+              onClick={() => copyToClipboard(rawTokenString, 'raw-token')}
             >
-              Access Token (Decoded Claims)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTokenTab('id')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                activeTokenTab === 'id'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              ID Token (User Info)
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTokenTab('raw')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                activeTokenTab === 'raw'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Raw Encoded JWT
-            </button>
-          </div>
+              {copiedKey === 'raw-token' ? 'Copied' : 'Copy'}
+            </Button>
+          </Tooltip>
+        </Box>
 
-          <button
-            type="button"
-            onClick={() => copyToClipboard(rawTokenString, 'token-raw')}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition-colors"
-          >
-            {copiedKey === 'token-raw' ? (
-              <>
-                <Check className="w-3.5 h-3.5 text-emerald-400" />
-                <span className="text-emerald-400">Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                <span>Copy Token</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Tab content */}
-        <div className="p-6">
+        <Box sx={{ p: 3 }}>
           {activeTokenTab === 'raw' ? (
-            <div className="space-y-3 font-mono text-xs">
-              <p className="text-slate-400 font-sans text-xs">
-                Compact JWS string consisting of <code className="text-red-400">header</code>.
-                <code className="text-purple-400">payload</code>.
-                <code className="text-cyan-400">signature</code>:
-              </p>
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 break-all text-slate-300 leading-relaxed font-mono">
-                {rawTokenString}
-              </div>
-            </div>
+            <Paper
+              variant="outlined"
+              sx={{
+                p: 2,
+                borderRadius: 2,
+                fontFamily: 'monospace',
+                fontSize: '0.75rem',
+                wordBreak: 'break-all',
+                backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)',
+              }}
+            >
+              {rawTokenString}
+            </Paper>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 font-mono text-xs">
-              {/* Claims Breakdown table */}
-              <div className="lg:col-span-2 space-y-4">
-                <h4 className="font-sans font-bold text-slate-200 text-xs uppercase tracking-wider">
-                  Important Token Claims Explained
-                </h4>
-
-                <div className="space-y-2">
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={7}>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  Payload Claims
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   {decodedPayload &&
-                    Object.entries(decodedPayload).map(([claimKey, claimVal]) => {
-                      const isAssuranceClaim = claimKey === 'acr' || claimKey === 'amr';
+                    Object.entries(decodedPayload).map(([key, val]) => {
+                      const isAssurance = key === 'acr' || key === 'amr';
                       return (
-                        <div
-                          key={claimKey}
-                          className={`p-3 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-                            isAssuranceClaim
-                              ? 'bg-indigo-950/20 border-indigo-500/30'
-                              : 'bg-slate-950/60 border-slate-800/80'
-                          }`}
+                        <Paper
+                          key={key}
+                          variant="outlined"
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            borderColor: isAssurance ? 'primary.main' : 'divider',
+                            backgroundColor: isAssurance
+                              ? theme.palette.mode === 'dark'
+                                ? 'rgba(99,102,241,0.08)'
+                                : 'rgba(99,102,241,0.04)'
+                              : 'transparent',
+                          }}
                         >
-                          <div className="flex items-center space-x-2">
-                            <span
-                              className={`font-semibold ${
-                                isAssuranceClaim ? 'text-indigo-400' : 'text-slate-300'
-                              }`}
-                            >
-                              {claimKey}
-                            </span>
-                            {isAssuranceClaim && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-sans">
-                                Assurance Metric
-                              </span>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body2" fontFamily="monospace" fontWeight={600}>
+                              {key}
+                            </Typography>
+                            {isAssurance && (
+                              <Chip label="Assurance" size="small" color="primary" sx={{ height: 18, fontSize: '0.65rem' }} />
                             )}
-                          </div>
-                          <div className="text-slate-300 break-all text-right sm:max-w-md">
-                            {typeof claimVal === 'object' ? (
-                              <pre className="text-left font-mono text-[11px] bg-slate-900 p-1.5 rounded">
-                                {JSON.stringify(claimVal, null, 2)}
-                              </pre>
-                            ) : (
-                              String(claimVal)
-                            )}
-                          </div>
-                        </div>
+                          </Box>
+                          <Typography
+                            variant="body2"
+                            fontFamily="monospace"
+                            color="text.secondary"
+                            sx={{ wordBreak: 'break-all', maxWidth: 300, textAlign: 'right' }}
+                          >
+                            {typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                          </Typography>
+                        </Paper>
                       );
                     })}
-                </div>
-              </div>
+                </Box>
+              </Grid>
 
-              {/* JSON preview */}
-              <div className="space-y-3">
-                <h4 className="font-sans font-bold text-slate-200 text-xs uppercase tracking-wider">
-                  Raw Payload JSON
-                </h4>
-                <pre className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 overflow-x-auto text-[11px] leading-relaxed max-h-[500px]">
-                  {JSON.stringify(decodedPayload, null, 2)}
-                </pre>
-              </div>
-            </div>
+              <Grid item xs={12} md={5}>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                  Decoded JSON
+                </Typography>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    fontFamily: 'monospace',
+                    fontSize: '0.75rem',
+                    maxHeight: 450,
+                    overflowY: 'auto',
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <pre style={{ margin: 0 }}>{JSON.stringify(decodedPayload, null, 2)}</pre>
+                </Paper>
+              </Grid>
+            </Grid>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Paper>
+    </Box>
   );
 };

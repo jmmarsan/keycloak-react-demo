@@ -1,4 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  ThemeProvider,
+  CssBaseline,
+  Container,
+  Box,
+  Alert,
+  AlertTitle,
+  Button,
+  Typography,
+} from '@mui/material';
+import { getAppTheme } from './theme.js';
 import { 
   exchangeCodeForTokens, 
   parseJwt, 
@@ -16,9 +27,23 @@ import { ProtectedResourcesScreen } from './components/ProtectedResourcesScreen.
 import { SetupGuideView } from './components/SetupGuideView.jsx';
 import { AuditLogScreen } from './components/AuditLogScreen.jsx';
 import { KeycloakHealthBanner } from './components/KeycloakHealthBanner.jsx';
-import { AlertCircle, X, ShieldAlert } from 'lucide-react';
 
 export default function App() {
+  // Theme mode: dark vs light
+  const [themeMode, setThemeMode] = useState(() => {
+    return localStorage.getItem('kc_theme_mode') || 'dark';
+  });
+
+  const theme = useMemo(() => getAppTheme(themeMode), [themeMode]);
+
+  const handleToggleTheme = () => {
+    setThemeMode((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('kc_theme_mode', next);
+      return next;
+    });
+  };
+
   // Configuration targeting local Keycloak
   const [config, setConfig] = useState(() => {
     const saved = localStorage.getItem('kc_app_config');
@@ -48,8 +73,8 @@ export default function App() {
       id: 'init-1',
       timestamp: new Date().toLocaleTimeString(),
       type: 'PKCE_GEN',
-      title: 'Local Keycloak Client Initialized',
-      detail: 'Configured for PKCE S256 code exchange against local Keycloak at port 8080.',
+      title: 'Material UI Keycloak Client Initialized',
+      detail: 'MUI v6 Theme applied with Dark/Light toggle. Ready for PKCE S256 code exchanges.',
       status: 'info',
     },
   ]);
@@ -225,7 +250,6 @@ export default function App() {
     const acr = payload.acr || '';
     const amr = payload.amr || [];
 
-    // Evaluate factor level from token claims:
     const isPfa =
       acr === config.pfaAcrValue ||
       String(acr).includes('pfa') ||
@@ -420,137 +444,124 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
-      {/* Top Header */}
-      <Header
-        session={session}
-        onLogout={handleLogout}
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        config={config}
-      />
-
-      {/* Navigation Tabs */}
-      <Navigation
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        factorLevel={session ? session.factorLevel : 'none'}
-        auditCount={auditLogs.length}
-      />
-
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Auth Error Banner with Quick Fix */}
-        {authError && (
-          <div className="p-4 rounded-xl bg-red-950/50 border border-red-500/50 text-red-200 text-xs shadow-lg animate-fade-in space-y-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-bold text-white text-sm">
-                    Keycloak Error: {authError.error}
-                  </div>
-                  <p className="mt-1 text-red-300 font-mono text-[11px]">
-                    {authError.errorDescription || 'The authorization request was rejected by Keycloak.'}
-                  </p>
-                  {authError.error === 'invalid_scope' && (
-                    <p className="mt-2 text-slate-300 leading-relaxed">
-                      <strong>Why this happens:</strong> In Keycloak, client <code className="text-white font-mono bg-black/40 px-1 py-0.5 rounded">{config.clientId}</code> was created without assigning the requested scopes (<code className="text-amber-300 font-mono">profile</code>, <code className="text-amber-300 font-mono">email</code>). The standard OpenID Connect core scope is <code className="text-emerald-300 font-mono">openid</code>, which always works.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setAuthError(null)}
-                className="p-1 rounded text-red-400 hover:text-white hover:bg-red-900/40 transition-colors"
-                title="Dismiss error"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-red-500/20">
-              {authError.error === 'invalid_scope' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleUpdateConfig({ ...config, scope: 'openid' });
-                    setAuthError(null);
-                  }}
-                  className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors shadow-sm"
-                >
-                  Switch Scope to 'openid' &amp; Retry
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthError(null);
-                  setActiveTab('guide');
-                }}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-medium transition-colors"
-              >
-                View Keycloak Client Scopes Guide
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Live Keycloak Health Status Bar */}
-        <KeycloakHealthBanner
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+        {/* Top Material UI Header with Dark/Light Toggle */}
+        <Header
+          session={session}
+          onLogout={handleLogout}
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
           config={config}
-          onOpenGuide={() => setActiveTab('guide')}
+          themeMode={themeMode}
+          onToggleTheme={handleToggleTheme}
         />
 
-        {/* Tab 1: Auth Flows & Testing Console */}
-        {activeTab === 'auth-flows' && (
-          <AuthFlowScreen
+        {/* Navigation Tabs */}
+        <Navigation
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          factorLevel={session ? session.factorLevel : 'none'}
+          auditCount={auditLogs.length}
+        />
+
+        {/* Main Content Container */}
+        <Container maxWidth="lg" sx={{ flexGrow: 1, py: 4, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {/* Keycloak Error Alert */}
+          {authError && (
+            <Alert
+              severity="error"
+              onClose={() => setAuthError(null)}
+              sx={{ borderRadius: 3 }}
+              action={
+                authError.error === 'invalid_scope' ? (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    variant="contained"
+                    onClick={() => {
+                      handleUpdateConfig({ ...config, scope: 'openid' });
+                      setAuthError(null);
+                    }}
+                  >
+                    Switch to 'openid'
+                  </Button>
+                ) : null
+              }
+            >
+              <AlertTitle fontWeight={700}>Keycloak Error: {authError.error}</AlertTitle>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                {authError.errorDescription || 'The authorization request was rejected by Keycloak.'}
+              </Typography>
+              {authError.error === 'invalid_scope' && (
+                <Typography variant="caption" display="block">
+                  Your Keycloak client <code>{config.clientId}</code> does not have <code>profile</code> or <code>email</code> client scopes assigned. Click "Switch to 'openid'" above to use the standard core OIDC scope.
+                </Typography>
+              )}
+            </Alert>
+          )}
+
+          {/* Keycloak Health Banner */}
+          <KeycloakHealthBanner
             config={config}
-            onUpdateConfig={handleUpdateConfig}
-            session={session}
-            onSessionCreated={handleSessionCreated}
-            onLogAudit={addAuditLog}
+            onOpenGuide={() => setActiveTab('guide')}
           />
-        )}
 
-        {/* Tab 2: Token & Session Inspector */}
-        {activeTab === 'tokens' && (
-          <TokenInspectorScreen
-            session={session}
-            onRefresh={handleRefreshToken}
-            onStepUp={handleStepUpElevation}
-            onGoToConsole={() => setActiveTab('auth-flows')}
-          />
-        )}
+          {/* Tab Views */}
+          {activeTab === 'auth-flows' && (
+            <AuthFlowScreen
+              config={config}
+              onUpdateConfig={handleUpdateConfig}
+              session={session}
+              onSessionCreated={handleSessionCreated}
+              onLogAudit={addAuditLog}
+            />
+          )}
 
-        {/* Tab 3: Protected Resources & Access Control */}
-        {activeTab === 'protected' && (
-          <ProtectedResourcesScreen
-            session={session}
-            onStepUpToPfa={handleStepUpElevation}
-            onGoToConsole={() => setActiveTab('auth-flows')}
-            onLogAudit={addAuditLog}
-          />
-        )}
+          {activeTab === 'tokens' && (
+            <TokenInspectorScreen
+              session={session}
+              onRefresh={handleRefreshToken}
+              onStepUp={handleStepUpElevation}
+              onGoToConsole={() => setActiveTab('auth-flows')}
+            />
+          )}
 
-        {/* Tab 4: Local Keycloak Setup Guide */}
-        {activeTab === 'guide' && <SetupGuideView />}
+          {activeTab === 'protected' && (
+            <ProtectedResourcesScreen
+              session={session}
+              onStepUpToPfa={handleStepUpElevation}
+              onGoToConsole={() => setActiveTab('auth-flows')}
+              onLogAudit={addAuditLog}
+            />
+          )}
 
-        {/* Tab 5: Protocol Audit Logs */}
-        {activeTab === 'audit' && (
-          <AuditLogScreen
-            logs={auditLogs}
-            onClearLogs={() => setAuditLogs([])}
-          />
-        )}
-      </main>
+          {activeTab === 'guide' && <SetupGuideView />}
 
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-xs text-slate-500">
-        <p>Keycloak SFA &amp; PFA Authentication Studio • Direct Local OIDC with RFC 7636 PKCE</p>
-      </footer>
-    </div>
+          {activeTab === 'audit' && (
+            <AuditLogScreen
+              logs={auditLogs}
+              onClearLogs={() => setAuditLogs([])}
+            />
+          )}
+        </Container>
+
+        {/* Footer */}
+        <Box
+          component="footer"
+          sx={{
+            py: 3,
+            borderTop: `1px solid ${theme.palette.divider}`,
+            textAlign: 'center',
+            backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.02)',
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            Keycloak SFA &amp; PFA Authentication Studio • Built with Material UI • Local OIDC PKCE
+          </Typography>
+        </Box>
+      </Box>
+    </ThemeProvider>
   );
 }

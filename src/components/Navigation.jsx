@@ -1,11 +1,10 @@
 import React from 'react';
-import { 
-  KeyRound, 
-  FileCode, 
-  Lock, 
-  BookOpen, 
-  Activity 
-} from 'lucide-react';
+import { Box, Tabs, Tab, Badge, Container, useTheme } from '@mui/material';
+import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import CodeIcon from '@mui/icons-material/Code';
+import LockIcon from '@mui/icons-material/Lock';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import HistoryIcon from '@mui/icons-material/History';
 
 export const Navigation = ({
   activeTab,
@@ -13,93 +12,100 @@ export const Navigation = ({
   factorLevel,
   auditCount,
 }) => {
-  const tabs = [
-    {
-      id: 'auth-flows',
-      label: 'Testing Console',
-      sublabel: 'SFA vs PFA Logins',
-      icon: KeyRound,
-    },
-    {
-      id: 'tokens',
-      label: 'Token & Session',
-      sublabel: 'ACR / AMR Claims',
-      icon: FileCode,
-      badge: factorLevel !== 'none' ? factorLevel.toUpperCase() : undefined,
-      badgeColor: factorLevel === 'pfa' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400',
-    },
-    {
-      id: 'protected',
-      label: 'Protected Resources',
-      sublabel: 'Step-Up Enforcement',
-      icon: Lock,
-    },
-    {
-      id: 'guide',
-      label: 'Keycloak Setup Guide',
-      sublabel: 'Local Docker & Realm',
-      icon: BookOpen,
-      highlight: true,
-    },
-    {
-      id: 'audit',
-      label: 'Protocol Audit Logs',
-      sublabel: 'OIDC Timeline',
-      icon: Activity,
-      count: auditCount,
-    },
-  ];
+  const theme = useTheme();
+
+  const handleChange = (event, newValue) => {
+    onSelectTab(newValue);
+  };
 
   return (
-    <nav className="border-b border-slate-800 bg-slate-900/40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex space-x-1 sm:space-x-4 overflow-x-auto py-2 scrollbar-none">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => onSelectTab(tab.id)}
-                className={`flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl text-left whitespace-nowrap transition-all ${
-                  isActive
-                    ? 'bg-indigo-600/15 text-indigo-300 border border-indigo-500/30 shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent'
-                }`}
-              >
-                <div
-                  className={`p-1.5 rounded-lg ${
-                    isActive
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-800/80 text-slate-400'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="font-semibold text-xs sm:text-sm text-slate-100">
-                      {tab.label}
-                    </span>
-                    {tab.badge && (
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tab.badgeColor}`}>
-                        {tab.badge}
-                      </span>
-                    )}
-                    {tab.count !== undefined && tab.count > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 font-mono">
-                        {tab.count}
-                      </span>
-                    )}
-                  </div>
-                  <span className="block text-[11px] text-slate-400">{tab.sublabel}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
+    <Box
+      sx={{
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        backgroundColor:
+          theme.palette.mode === 'dark'
+            ? 'rgba(15, 23, 42, 0.4)'
+            : 'rgba(241, 245, 249, 0.6)',
+      }}
+    >
+      <Container maxWidth="lg">
+        <Tabs
+          value={activeTab}
+          onChange={handleChange}
+          variant="scrollable"
+          scrollButtons="auto"
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{ minHeight: 48 }}
+        >
+          <Tab
+            value="auth-flows"
+            icon={<VpnKeyIcon fontSize="small" />}
+            iconPosition="start"
+            label="Testing Console"
+          />
+
+          <Tab
+            value="tokens"
+            icon={<CodeIcon fontSize="small" />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <span>Token &amp; Session</span>
+                {factorLevel !== 'none' && (
+                  <Badge
+                    badgeContent={factorLevel.toUpperCase()}
+                    color={factorLevel === 'pfa' ? 'success' : 'warning'}
+                    sx={{ ml: 1 }}
+                  />
+                )}
+              </Box>
+            }
+          />
+
+          <Tab
+            value="protected"
+            icon={<LockIcon fontSize="small" />}
+            iconPosition="start"
+            label="Protected Resources"
+          />
+
+          <Tab
+            value="guide"
+            icon={<MenuBookIcon fontSize="small" />}
+            iconPosition="start"
+            label="Keycloak Setup Guide"
+          />
+
+          <Tab
+            value="audit"
+            icon={<HistoryIcon fontSize="small" />}
+            iconPosition="start"
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <span>Protocol Logs</span>
+                {auditCount > 0 && (
+                  <Box
+                    component="span"
+                    sx={{
+                      ml: 0.5,
+                      px: 0.8,
+                      py: 0.2,
+                      fontSize: '0.7rem',
+                      fontWeight: 700,
+                      borderRadius: 1,
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                      color: 'text.secondary',
+                    }}
+                  >
+                    {auditCount}
+                  </Box>
+                )}
+              </Box>
+            }
+          />
+        </Tabs>
+      </Container>
+    </Box>
   );
 };

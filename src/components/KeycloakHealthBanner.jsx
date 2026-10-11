@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Server, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import {
+  Alert,
+  AlertTitle,
+  Box,
+  Button,
+  CircularProgress,
+  Typography,
+  Chip,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { testKeycloakConnectivity } from '../services/oidc';
 
-export const KeycloakHealthBanner = ({
-  config,
-  onOpenGuide,
-}) => {
+export const KeycloakHealthBanner = ({ config, onOpenGuide }) => {
   const [checking, setChecking] = useState(false);
   const [status, setStatus] = useState({
     tested: false,
@@ -30,81 +39,76 @@ export const KeycloakHealthBanner = ({
     runCheck();
   }, [config.baseUrl, config.realm]);
 
+  const severity = !status.tested
+    ? 'info'
+    : status.reachable
+    ? 'success'
+    : 'warning';
+
   return (
-    <div
-      className={`rounded-xl border p-4 transition-all text-xs ${
-        !status.tested
-          ? 'bg-slate-900/60 border-slate-800 text-slate-300'
-          : status.reachable
-          ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
-          : 'bg-amber-950/30 border-amber-500/30 text-amber-200'
-      }`}
-    >
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-start sm:items-center space-x-3">
-          <div
-            className={`p-2 rounded-lg ${
-              status.reachable
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : 'bg-amber-500/20 text-amber-400'
-            }`}
-          >
-            {checking ? (
-              <RefreshCw className="w-4 h-4 animate-spin text-indigo-400" />
-            ) : status.reachable ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center space-x-2">
-              <span className="font-semibold text-sm text-white">
-                Local Keycloak Endpoint:
-              </span>
-              <code className="px-1.5 py-0.5 rounded bg-black/40 border border-white/10 font-mono text-[11px] text-slate-300">
-                {config.baseUrl}/realms/{config.realm}
-              </code>
-            </div>
-
-            <p className="mt-0.5 text-slate-400">
-              {checking ? (
-                'Probing OpenID Connect discovery endpoint...'
-              ) : status.reachable ? (
-                <span className="text-emerald-400">
-                  Keycloak is reachable! Ready for SFA and PFA login flows.
-                </span>
-              ) : (
-                <span className="text-amber-400/90">
-                  {status.error ||
-                    'Keycloak not detected on port 8080. If not started yet, switch to IdP Simulator or check guide.'}
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center space-x-2 self-end sm:self-center">
-          <button
-            type="button"
+    <Alert
+      severity={severity}
+      icon={
+        checking ? (
+          <CircularProgress size={20} color="inherit" />
+        ) : status.reachable ? (
+          <CheckCircleOutlineIcon fontSize="inherit" />
+        ) : (
+          <WarningAmberIcon fontSize="inherit" />
+        )
+      }
+      action={
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button
+            size="small"
+            color="inherit"
+            startIcon={<RefreshIcon fontSize="small" className={checking ? 'animate-spin' : ''} />}
             onClick={runCheck}
             disabled={checking}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${checking ? 'animate-spin' : ''}`} />
-            <span>Test Connection</span>
-          </button>
+            Test
+          </Button>
+          {!status.reachable && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              startIcon={<InfoOutlinedIcon fontSize="small" />}
+              onClick={onOpenGuide}
+            >
+              Setup Guide
+            </Button>
+          )}
+        </Box>
+      }
+      sx={{
+        borderRadius: 3,
+        alignItems: 'center',
+        '& .MuiAlert-message': { width: '100%' },
+      }}
+    >
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Typography variant="subtitle2" fontWeight={700}>
+          Local Keycloak Status
+        </Typography>
+        <Chip
+          label={`${config.baseUrl}/realms/${config.realm}`}
+          size="small"
+          variant="outlined"
+          sx={{ fontFamily: 'monospace', height: 20, fontSize: '0.7rem' }}
+        />
+      </Box>
 
-          <button
-            type="button"
-            onClick={onOpenGuide}
-            className="flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 transition-colors"
-          >
-            <span>Setup Instructions</span>
-          </button>
-        </div>
-      </div>
-    </div>
+      <Typography variant="body2" sx={{ opacity: 0.9 }}>
+        {checking ? (
+          'Probing Keycloak OpenID Connect discovery endpoint...'
+        ) : status.reachable ? (
+          'Keycloak is reachable on port 8080! Ready to process Single-Factor and Protected-Factor logins.'
+        ) : (
+          status.error ||
+          'Keycloak not detected on port 8080. Start your local container or check Web Origins (CORS).'
+        )}
+      </Typography>
+    </Alert>
   );
 };

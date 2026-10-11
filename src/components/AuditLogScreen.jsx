@@ -1,18 +1,29 @@
 import React, { useState } from 'react';
-import { 
-  Activity, 
-  Trash2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Info, 
-  XCircle, 
-  Copy, 
-  Check, 
-  ChevronDown, 
-  ChevronUp 
-} from 'lucide-react';
+import {
+  Box,
+  Paper,
+  Typography,
+  Chip,
+  Button,
+  IconButton,
+  Tooltip,
+  ButtonGroup,
+  Collapse,
+  useTheme,
+} from '@mui/material';
+import HistoryIcon from '@mui/icons-material/History';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export const AuditLogScreen = ({ logs, onClearLogs }) => {
+  const theme = useTheme();
   const [filter, setFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -29,140 +40,150 @@ export const AuditLogScreen = ({ logs, onClearLogs }) => {
   });
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto py-4">
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* Header & Controls */}
-      <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center space-x-2">
-            <Activity className="w-5 h-5 text-indigo-400" />
-            <h2 className="text-xl font-bold text-white">OIDC &amp; Security Protocol Timeline</h2>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time trace of cryptographic nonces, Keycloak redirects, PKCE exchanges, AMR/ACR assertions, and step-up challenges.
-          </p>
-        </div>
+      <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h6" fontWeight={800} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <HistoryIcon color="primary" />
+              OIDC &amp; Security Protocol Timeline
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Real-time trace of cryptographic nonces, Keycloak redirects, PKCE exchanges, and assurance evaluations.
+            </Typography>
+          </Box>
 
-        <div className="flex items-center space-x-3">
-          <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
-            {['all', 'success', 'warning', 'error'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setFilter(mode)}
-                className={`px-3 py-1 rounded-md capitalize font-medium transition-colors ${
-                  filter === mode
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <ButtonGroup size="small" variant="outlined">
+              {['all', 'success', 'warning', 'error'].map((mode) => (
+                <Button
+                  key={mode}
+                  variant={filter === mode ? 'contained' : 'outlined'}
+                  onClick={() => setFilter(mode)}
+                  sx={{ textTransform: 'capitalize' }}
+                >
+                  {mode}
+                </Button>
+              ))}
+            </ButtonGroup>
 
-          <button
-            type="button"
-            onClick={onClearLogs}
-            className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 border border-slate-700 transition-colors"
-            title="Clear all log events"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
+            <Tooltip title="Clear logs">
+              <IconButton size="small" color="error" onClick={onClearLogs}>
+                <DeleteOutlineIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+      </Paper>
 
-      {/* Log items */}
-      <div className="space-y-3">
+      {/* Log list */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {filteredLogs.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl bg-slate-900/40 border border-slate-800 text-slate-500 text-xs">
-            No audit events found matching current filter.
-          </div>
+          <Paper variant="outlined" sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              No audit events found matching the active filter.
+            </Typography>
+          </Paper>
         ) : (
           filteredLogs.map((log) => {
             const isExpanded = expandedId === log.id;
             const StatusIcon =
               log.status === 'success'
-                ? CheckCircle2
+                ? CheckCircleOutlineIcon
                 : log.status === 'error'
-                ? XCircle
+                ? ErrorOutlineIcon
                 : log.status === 'warning'
-                ? AlertTriangle
-                : Info;
+                ? WarningAmberIcon
+                : InfoOutlinedIcon;
 
-            const statusColors =
+            const chipColor =
               log.status === 'success'
-                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                ? 'success'
                 : log.status === 'error'
-                ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                ? 'error'
                 : log.status === 'warning'
-                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                : 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20';
+                ? 'warning'
+                : 'info';
 
             return (
-              <div
+              <Paper
                 key={log.id}
-                className="p-4 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-all text-xs space-y-2"
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  borderRadius: 2.5,
+                  transition: 'background-color 0.15s',
+                  '&:hover': {
+                    backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                  },
+                }}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start space-x-3">
-                    <div className={`p-1.5 rounded-lg border ${statusColors} shrink-0 mt-0.5`}>
-                      <StatusIcon className="w-4 h-4" />
-                    </div>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                    <Box sx={{ mt: 0.25 }}>
+                      <StatusIcon color={chipColor} fontSize="small" />
+                    </Box>
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="subtitle2" fontWeight={700}>
+                          {log.title}
+                        </Typography>
+                        <Chip
+                          label={log.type}
+                          size="small"
+                          sx={{ height: 18, fontSize: '0.65rem', fontFamily: 'monospace' }}
+                        />
+                        <Typography variant="caption" color="text.secondary" fontFamily="monospace">
+                          {log.timestamp}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        {log.detail}
+                      </Typography>
+                    </Box>
+                  </Box>
 
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-white text-sm">{log.title}</span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
-                          {log.type}
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-mono">{log.timestamp}</span>
-                      </div>
-                      <p className="text-slate-300 mt-0.5">{log.detail}</p>
-                    </div>
-                  </div>
+                  {log.payload && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Tooltip title="Copy JSON payload">
+                        <IconButton size="small" onClick={() => copyPayload(log.payload, log.id)}>
+                          {copiedId === log.id ? <CheckIcon color="success" fontSize="small" /> : <ContentCopyIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={isExpanded ? 'Collapse' : 'Expand payload'}>
+                        <IconButton size="small" onClick={() => setExpandedId(isExpanded ? null : log.id)}>
+                          {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  )}
+                </Box>
 
-                  {log.payload ? (
-                    <div className="flex items-center space-x-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => copyPayload(log.payload, log.id)}
-                        className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                        title="Copy JSON payload"
-                      >
-                        {copiedId === log.id ? (
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        ) : (
-                          <Copy className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setExpandedId(isExpanded ? null : log.id)}
-                        className="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                        title="Toggle payload"
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-
-                {isExpanded && log.payload ? (
-                  <div className="mt-3 pt-3 border-t border-slate-800 animate-fade-in font-mono text-[11px]">
-                    <pre className="p-3 rounded-lg bg-slate-950 border border-slate-800 text-slate-300 overflow-x-auto leading-relaxed max-h-72">
-                      {JSON.stringify(log.payload, null, 2)}
-                    </pre>
-                  </div>
-                ) : null}
-              </div>
+                {/* Collapsible payload */}
+                {log.payload && (
+                  <Collapse in={isExpanded}>
+                    <Paper
+                      variant="outlined"
+                      sx={{
+                        p: 1.5,
+                        mt: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.02)',
+                        fontFamily: 'monospace',
+                        fontSize: '0.75rem',
+                        overflowX: 'auto',
+                      }}
+                    >
+                      <pre style={{ margin: 0 }}>{JSON.stringify(log.payload, null, 2)}</pre>
+                    </Paper>
+                  </Collapse>
+                )}
+              </Paper>
             );
           })
         )}
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };

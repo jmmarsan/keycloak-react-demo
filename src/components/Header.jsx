@@ -1,12 +1,24 @@
 import React from 'react';
-import { 
-  Shield, 
-  ShieldCheck, 
-  ShieldAlert, 
-  Server, 
-  LogOut, 
-  BookOpen 
-} from 'lucide-react';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Box,
+  IconButton,
+  Button,
+  Chip,
+  Tooltip,
+  useTheme,
+} from '@mui/material';
+import ShieldIcon from '@mui/icons-material/Shield';
+import SecurityIcon from '@mui/icons-material/Security';
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import StorageIcon from '@mui/icons-material/Storage';
+import LogoutIcon from '@mui/icons-material/Logout';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
 
 export const Header = ({
   session,
@@ -14,92 +26,177 @@ export const Header = ({
   activeTab,
   onSelectTab,
   config,
+  themeMode,
+  onToggleTheme,
 }) => {
+  const theme = useTheme();
+
   return (
-    <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-40 text-slate-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Title */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="font-bold text-lg text-white tracking-tight">Keycloak SFA &amp; PFA</span>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-medium">
-                  Local IdP
-                </span>
-              </div>
-              <p className="text-xs text-slate-400">Direct OIDC &amp; PKCE against Local Keycloak</p>
-            </div>
-          </div>
+    <AppBar
+      position="sticky"
+      color="default"
+      elevation={0}
+      sx={{
+        borderBottom: `1px solid ${theme.palette.divider}`,
+        backgroundColor:
+          theme.palette.mode === 'dark'
+            ? 'rgba(15, 23, 42, 0.85)'
+            : 'rgba(255, 255, 255, 0.85)',
+        backdropFilter: 'blur(12px)',
+        zIndex: theme.zIndex.drawer + 1,
+      }}
+    >
+      <Toolbar sx={{ justifyContent: 'space-between', px: { xs: 2, sm: 3 } }}>
+        {/* Brand / Logo */}
+        <Box sx={{ display: 'flex', items: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2.5,
+              background: 'linear-gradient(135deg, #06b6d4, #6366f1, #a855f7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
+            }}
+          >
+            <ShieldIcon fontSize="small" />
+          </Box>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle1" fontWeight={800} sx={{ letterSpacing: -0.3 }}>
+                Keycloak SFA &amp; PFA
+              </Typography>
+              <Chip
+                label="Local IdP"
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }}
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -0.3 }}>
+              OIDC PKCE Authentication Testing Studio
+            </Typography>
+          </Box>
+        </Box>
 
-          {/* Local Target Badge & Status */}
-          <div className="flex items-center space-x-3">
-            {/* Target Server Badge */}
-            <div className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <Server className="w-3.5 h-3.5 text-cyan-400" />
-              <span className="text-slate-300 font-mono text-[11px]">{config?.baseUrl || 'http://localhost:8080'}</span>
-            </div>
+        {/* Right side controls */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Target Host Chip */}
+          <Chip
+            icon={<StorageIcon fontSize="small" />}
+            label={config?.baseUrl || 'http://localhost:8080'}
+            size="small"
+            variant="outlined"
+            sx={{
+              display: { xs: 'none', md: 'inline-flex' },
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+            }}
+          />
 
-            {/* Current Factor Badge */}
-            {session ? (
-              <div className="flex items-center space-x-2 pl-2 border-l border-slate-800">
-                <div
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                    session.factorLevel === 'pfa'
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                      : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                  }`}
-                >
-                  {session.factorLevel === 'pfa' ? (
-                    <ShieldCheck className="w-3.5 h-3.5" />
+          {/* Current Session Chip */}
+          {session ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                icon={
+                  session.factorLevel === 'pfa' ? (
+                    <VerifiedUserIcon fontSize="small" />
                   ) : (
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                  )}
-                  <span>{session.factorLevel.toUpperCase()} Session</span>
-                </div>
+                    <WarningAmberIcon fontSize="small" />
+                  )
+                }
+                label={`${session.factorLevel.toUpperCase()} Session`}
+                color={session.factorLevel === 'pfa' ? 'success' : 'warning'}
+                size="small"
+                sx={{ fontWeight: 700 }}
+              />
 
-                <div className="hidden md:flex flex-col text-right text-xs">
-                  <span className="font-medium text-slate-200">{session.user.username}</span>
-                  <span className="text-slate-400 text-[10px]">{session.user.roles[0] || 'User'}</span>
-                </div>
+              <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
+                <Typography variant="caption" fontWeight={600} display="block">
+                  {session.user.username}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                  {session.user.roles?.[0] || 'User'}
+                </Typography>
+              </Box>
 
-                <button
-                  type="button"
+              <Tooltip title="Logout / Terminate Session">
+                <IconButton
+                  size="small"
                   onClick={onLogout}
-                  className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  title="Logout / Terminate Session"
+                  color="error"
+                  sx={{
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 2,
+                  }}
                 >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2 pl-2 border-l border-slate-800">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
-                  Not Authenticated
-                </span>
-              </div>
-            )}
+                  <LogoutIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Chip
+              label="Not Authenticated"
+              size="small"
+              variant="outlined"
+              sx={{ color: 'text.secondary' }}
+            />
+          )}
 
-            {/* Quick Setup Guide Button */}
-            <button
-              type="button"
-              onClick={() => onSelectTab('guide')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                activeTab === 'guide'
-                  ? 'bg-purple-600/20 text-purple-300 border-purple-500/40'
-                  : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-              }`}
+          {/* Dark / Light Mode Toggle Button */}
+          <Tooltip title={`Switch to ${themeMode === 'dark' ? 'Light' : 'Dark'} Mode`}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={onToggleTheme}
+              startIcon={
+                themeMode === 'dark' ? (
+                  <LightModeIcon fontSize="small" sx={{ color: '#fbbf24' }} />
+                ) : (
+                  <DarkModeIcon fontSize="small" sx={{ color: '#6366f1' }} />
+                )
+              }
+              sx={{
+                border: `1px solid ${theme.palette.divider}`,
+                borderRadius: 2,
+                color: 'text.primary',
+                textTransform: 'none',
+                fontWeight: 600,
+                backgroundColor:
+                  theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  backgroundColor:
+                    theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                },
+              }}
             >
-              <BookOpen className="w-3.5 h-3.5 text-purple-400" />
-              <span className="hidden sm:inline">Setup Keycloak</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                {themeMode === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>
+                {themeMode === 'dark' ? 'Light' : 'Dark'}
+              </Box>
+            </Button>
+          </Tooltip>
+
+          {/* Setup Guide Button */}
+          <Button
+            variant={activeTab === 'guide' ? 'contained' : 'outlined'}
+            color="primary"
+            size="small"
+            startIcon={<MenuBookIcon />}
+            onClick={() => onSelectTab('guide')}
+            sx={{ display: { xs: 'none', sm: 'inline-flex' } }}
+          >
+            Setup Guide
+          </Button>
+        </Box>
+      </Toolbar>
+    </AppBar>
   );
 };
