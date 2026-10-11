@@ -374,6 +374,22 @@ export const SetupGuideView = () => {
               <strong>Fix:</strong> Add <code className="text-indigo-300">*</code> or both <code className="text-slate-200">http://localhost:3000/*</code> and your Cloud Run URL to <strong>Valid redirect URIs</strong>.
             </p>
           </div>
+
+          <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2 md:col-span-2">
+            <span className="font-semibold text-purple-400 flex items-center space-x-1.5">
+              <AlertTriangle className="w-4 h-4" />
+              <span>Invalid Scope: "Invalid scopes: openid profile email"</span>
+            </span>
+            <p className="text-slate-400">
+              <strong>Cause:</strong> Keycloak client <code className="text-indigo-300">react-app</code> does not have the requested scopes (such as <code className="text-slate-300">profile</code> and <code className="text-slate-300">email</code>) linked under its Client Scopes.
+            </p>
+            <p className="text-slate-300">
+              <strong>Fix 1 (Instant):</strong> Keep the app's OIDC Scope set to <code className="text-emerald-300 font-bold">openid</code>. The <code className="text-emerald-300">openid</code> scope is the core OIDC standard and is guaranteed to work on all Keycloak clients.
+            </p>
+            <p className="text-slate-300">
+              <strong>Fix 2:</strong> In Keycloak Admin Console, go to <strong>Clients &gt; react-app &gt; Client Scopes &gt; Add Client Scope</strong>, select <code className="text-indigo-300 font-mono">profile</code> and <code className="text-indigo-300 font-mono">email</code>, and choose <strong>Default</strong>.
+            </p>
+          </div>
         </div>
       </section>
     </div>

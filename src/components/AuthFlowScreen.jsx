@@ -248,6 +248,19 @@ export const AuthFlowScreen = ({
           </div>
 
           <div>
+            <label className="block text-slate-400 font-medium mb-1">
+              OIDC Scope <span className="text-emerald-400 font-normal">(use 'openid')</span>
+            </label>
+            <input
+              type="text"
+              value={config.scope || 'openid'}
+              onChange={(e) => onUpdateConfig({ ...config, scope: e.target.value })}
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white font-mono text-[11px]"
+              placeholder="openid"
+            />
+          </div>
+
+          <div>
             <label className="block text-slate-400 font-medium mb-1">Redirect URI</label>
             <input
               type="text"

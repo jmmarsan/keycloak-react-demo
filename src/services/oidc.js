@@ -97,7 +97,7 @@ export function buildAuthorizeUrl(config, params = {}) {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: 'openid profile email',
+    scope: config.scope || 'openid',
     code_challenge: params.codeChallenge,
     code_challenge_method: 'S256',
     state: params.state,
@@ -207,7 +207,7 @@ export async function directGrantLogin(config, username, password, totp = null) 
     client_id: config.clientId,
     username,
     password,
-    scope: 'openid profile email',
+    scope: config.scope || 'openid',
   });
 
   if (totp) {
