@@ -135,6 +135,11 @@ export const AuthFlowScreen = ({
     sessionStorage.setItem('kc_flow_label', options.flowLabel);
     sessionStorage.setItem('kc_flow_factor', factorLevel);
     sessionStorage.setItem('kc_requested_acr', options.acrValue || '');
+    if (options.role) {
+      sessionStorage.setItem('kc_flow_role', options.role);
+    } else {
+      sessionStorage.removeItem('kc_flow_role');
+    }
     if (options.loginHint) {
       sessionStorage.setItem('kc_login_hint', options.loginHint);
     } else {
@@ -224,7 +229,17 @@ export const AuthFlowScreen = ({
       const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
         (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
       );
-      const effectiveRoles = allRoles.length > 0 ? allRoles : [selectedRole || 'user'];
+      let primaryRole = 'user';
+      if (allRoles.includes('admin') || directUsername.includes('.admin.') || directUsername.endsWith('.admin')) {
+        primaryRole = 'admin';
+      } else if (allRoles.includes('tenant') || directUsername.includes('.tenant.') || directUsername.endsWith('.tenant')) {
+        primaryRole = 'tenant';
+      } else if (allRoles.includes('user') || directUsername.includes('.user.') || directUsername.endsWith('.user')) {
+        primaryRole = 'user';
+      } else if (selectedRole) {
+        primaryRole = selectedRole;
+      }
+      const effectiveRoles = Array.from(new Set([primaryRole, ...allRoles]));
 
       const newSession = {
         isAuthenticated: true,
@@ -236,6 +251,7 @@ export const AuthFlowScreen = ({
           username: accessPayload.preferred_username || idPayload.preferred_username || directUsername,
           email: accessPayload.email || idPayload.email || `${directUsername}@hcltech.com`,
           name: accessPayload.name || idPayload.name || directUsername,
+          role: primaryRole,
           roles: effectiveRoles,
         },
         tokens,
@@ -683,6 +699,7 @@ export const AuthFlowScreen = ({
                     factorLevel: 'sfa',
                     loginHint: `${config.clientId}.${sfaCardRole}.sfa`,
                     prompt: 'login',
+                    role: sfaCardRole,
                   })
                 }
               >
@@ -810,6 +827,7 @@ export const AuthFlowScreen = ({
                     factorLevel: 'pfa',
                     loginHint: `${config.clientId}.${totpCardRole}.totp`,
                     prompt: 'login',
+                    role: totpCardRole,
                   })
                 }
               >
@@ -937,6 +955,7 @@ export const AuthFlowScreen = ({
                     factorLevel: 'pfa',
                     loginHint: `${config.clientId}.${fidoCardRole}.fido2`,
                     prompt: 'login',
+                    role: fidoCardRole,
                   })
                 }
               >

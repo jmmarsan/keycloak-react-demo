@@ -97,7 +97,7 @@ export function buildAuthorizeUrl(config, params = {}) {
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: config.scope || 'openid',
+    scope: config.scope || 'openid profile email roles',
     code_challenge: params.codeChallenge,
     code_challenge_method: 'S256',
     state: params.state,

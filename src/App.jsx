@@ -53,6 +53,9 @@ export default function App() {
         if (parsed.clientId === 'react-app') {
           parsed.clientId = 'callrecording';
         }
+        if (!parsed.scope || parsed.scope === 'openid') {
+          parsed.scope = 'openid profile email roles';
+        }
         return parsed;
       } catch {
         // fallback
@@ -63,7 +66,7 @@ export default function App() {
       realm: 'sfa-pfa-demo',
       clientId: 'callrecording',
       redirectUri: `${window.location.origin}/auth/callback`,
-      scope: 'openid',
+      scope: 'openid profile email roles',
       sfaAcrValue: 'loa-1',
       pfaAcrValue: 'loa-2',
     };
@@ -306,16 +309,38 @@ export default function App() {
     // If either token claims OR the executed login flow indicated PFA, set factorLevel to 'pfa'
     const isPfa = flowFactor === 'pfa' || tokenIndicatesPfa;
 
-    const username = accessPayload.preferred_username || idPayload.preferred_username || 'keycloak-user';
+    const storedLoginHint = sessionStorage.getItem('kc_login_hint');
+    const storedRole = sessionStorage.getItem('kc_flow_role');
+
+    let username =
+      accessPayload.preferred_username ||
+      idPayload.preferred_username ||
+      accessPayload.upn ||
+      idPayload.upn ||
+      '';
+
+    if (!username || username === 'keycloak-user') {
+      if (storedLoginHint) {
+        username = storedLoginHint;
+      } else if (accessPayload.email || idPayload.email) {
+        username = (accessPayload.email || idPayload.email).split('@')[0];
+      } else if (accessPayload.name || idPayload.name) {
+        username = accessPayload.name || idPayload.name;
+      } else {
+        username = 'keycloak-user';
+      }
+    }
 
     const isWebAuthn =
       amr.some((m) => ['webauthn', 'fido', 'passkey', 'hwk'].includes(String(m).toLowerCase())) ||
       username.toLowerCase().includes('webauthn') ||
+      username.toLowerCase().includes('fido') ||
       (flowLabel && flowLabel.toLowerCase().includes('webauthn'));
 
     const isOtpMfa =
       !isWebAuthn &&
       (amr.some((m) => ['otp', 'totp', 'sms'].includes(String(m).toLowerCase())) ||
+        username.toLowerCase().includes('totp') ||
         username.toLowerCase().includes('pfa'));
 
     const factorLevel = isPfa ? 'pfa' : 'sfa';
@@ -346,7 +371,25 @@ export default function App() {
     const allRoles = Array.from(new Set([...clientRoles, ...realmRoles])).filter(
       (r) => !['default-roles-sfa-pfa-demo', 'offline_access', 'uma_authorization'].includes(r)
     );
-    const effectiveRoles = allRoles.length > 0 ? allRoles : ['user'];
+
+    let primaryRole = storedRole;
+    if (!primaryRole) {
+      if (allRoles.includes('admin') || username.toLowerCase().includes('.admin.') || username.toLowerCase().endsWith('.admin') || username.toLowerCase().includes('admin')) {
+        primaryRole = 'admin';
+      } else if (allRoles.includes('tenant') || username.toLowerCase().includes('.tenant.') || username.toLowerCase().endsWith('.tenant') || username.toLowerCase().includes('tenant')) {
+        primaryRole = 'tenant';
+      } else if (allRoles.includes('user') || username.toLowerCase().includes('.user.') || username.toLowerCase().endsWith('.user') || username.toLowerCase().includes('user')) {
+        primaryRole = 'user';
+      } else {
+        primaryRole = allRoles[0] || 'user';
+      }
+    }
+    const effectiveRoles = Array.from(new Set([primaryRole, ...allRoles]));
+
+    const userDisplayName =
+      accessPayload.name ||
+      idPayload.name ||
+      username;
 
     const newSession = {
       isAuthenticated: true,
@@ -357,7 +400,8 @@ export default function App() {
         id: accessPayload.sub || idPayload.sub || 'user-id',
         username,
         email: accessPayload.email || idPayload.email || `${username}@hcltech.com`,
-        name: accessPayload.name || idPayload.name || accessPayload.preferred_username || username,
+        name: userDisplayName,
+        role: primaryRole,
         roles: effectiveRoles,
       },
       tokens,

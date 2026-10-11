@@ -24,6 +24,7 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import PhoneInTalkIcon from '@mui/icons-material/PhoneInTalk';
 import EmailIcon from '@mui/icons-material/Email';
+import PersonIcon from '@mui/icons-material/Person';
 
 export const Header = ({
   session,
@@ -180,14 +181,89 @@ export const Header = ({
                 );
               })()}
 
-              <Box sx={{ display: { xs: 'none', sm: 'block' }, textAlign: 'right' }}>
-                <Typography variant="caption" fontWeight={600} display="block">
-                  {session.user.username}
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                  {session.user.roles?.[0] || 'User'}
-                </Typography>
-              </Box>
+              {(() => {
+                const userName =
+                  session.user?.name && session.user.name !== 'keycloak-user'
+                    ? session.user.name
+                    : session.user?.username && session.user.username !== 'keycloak-user'
+                    ? session.user.username
+                    : session.user?.email
+                    ? session.user.email.split('@')[0]
+                    : (session.user?.username || 'User');
+
+                const userRole = (() => {
+                  const directRole = session.user?.role?.toLowerCase();
+                  if (['user', 'tenant', 'admin'].includes(directRole)) return directRole;
+
+                  const roles = Array.isArray(session.user?.roles)
+                    ? session.user.roles.map((r) => String(r).toLowerCase())
+                    : [];
+
+                  if (roles.includes('admin') || roles.some((r) => r.includes('admin'))) return 'admin';
+                  if (roles.includes('tenant') || roles.some((r) => r.includes('tenant'))) return 'tenant';
+                  if (roles.includes('user') || roles.some((r) => r === 'user')) return 'user';
+
+                  const uname = String(session.user?.username || '').toLowerCase();
+                  if (uname.includes('.admin.') || uname.endsWith('.admin') || uname.includes('admin')) return 'admin';
+                  if (uname.includes('.tenant.') || uname.endsWith('.tenant') || uname.includes('tenant')) return 'tenant';
+                  if (uname.includes('.user.') || uname.endsWith('.user') || uname.includes('user')) return 'user';
+
+                  return 'user';
+                })();
+
+                return (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.25,
+                      py: 0.5,
+                      borderRadius: 2,
+                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    <PersonIcon sx={{ fontSize: '1.1rem', color: 'primary.main' }} />
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                      <Typography
+                        variant="caption"
+                        fontWeight={700}
+                        sx={{
+                          lineHeight: 1.2,
+                          fontFamily: 'monospace',
+                          fontSize: '0.78rem',
+                          maxWidth: { xs: 110, sm: 180, md: 240 },
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={userName}
+                      >
+                        {userName}
+                      </Typography>
+                    </Box>
+                    <Chip
+                      label={userRole}
+                      size="small"
+                      color={
+                        userRole === 'admin'
+                          ? 'error'
+                          : userRole === 'tenant'
+                          ? 'warning'
+                          : 'default'
+                      }
+                      sx={{
+                        height: 20,
+                        fontSize: '0.7rem',
+                        fontWeight: 800,
+                        textTransform: 'lowercase',
+                        px: 0.25,
+                      }}
+                    />
+                  </Box>
+                );
+              })()}
 
               <Tooltip title="Logout / Terminate Session">
                 <IconButton
