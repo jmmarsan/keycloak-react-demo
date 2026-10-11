@@ -1,0 +1,6 @@
+{
+  "name": "Keycloak SFA & PFA Auth Studio",
+  "description": "Interactive testing environment for Single-Factor (SFA) and Protected/Passwordless-Factor (PFA/MFA) authentication against local Keycloak IdP with step-up verification and configuration guide.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
