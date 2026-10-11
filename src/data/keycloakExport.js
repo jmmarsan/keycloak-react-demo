@@ -140,6 +140,26 @@ export const KEYCLOAK_DEMO_REALM = {
       requiredActions: ["CONFIGURE_TOTP"],
       realmRoles: ["user", "admin", "vault-operator"],
     },
+    {
+      username: "sam.webauthn",
+      enabled: true,
+      email: "sam.webauthn@example.com",
+      firstName: "Sam",
+      lastName: "Altman-Key",
+      emailVerified: true,
+      credentials: [
+        {
+          type: "password",
+          value: "password123",
+          temporary: false,
+        },
+      ],
+      requiredActions: ["webauthn-register"],
+      realmRoles: ["user", "admin", "vault-operator"],
+      attributes: {
+        factorLevel: ["pfa-webauthn"],
+      },
+    },
   ],
 };
 

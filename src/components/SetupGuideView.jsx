@@ -215,8 +215,80 @@ export const SetupGuideView = () => {
                 3. Click Create
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Click <strong>"Create"</strong>. The realm, client <code>react-app</code>, PKCE S256, CORS origins, and test users (<code>alex.sfa</code> and <code>morgan.pfa</code>) are ready!
+                Click <strong>"Create"</strong>. The realm, client <code>react-app</code>, PKCE S256, CORS origins, and all 3 pre-configured test users (<code>alex.sfa</code>, <code>morgan.pfa</code>, and <code>sam.webauthn</code>) are ready!
               </Typography>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Pre-configured Test Users Card */}
+      <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <Chip label="★" color="secondary" sx={{ width: 32, height: 32, borderRadius: '50%', fontWeight: 800 }} />
+          <Typography variant="h6" fontWeight={700}>
+            Ready-to-Test User Accounts in Realm
+          </Typography>
+        </Box>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%', borderColor: 'warning.main', borderWidth: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} color="warning.main">
+                  1. SFA: Single Factor User
+                </Typography>
+                <Chip label="alex.sfa" size="small" color="warning" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Standard username/password authentication without MFA.
+              </Typography>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.03)', fontSize: '0.78rem' }}>
+                <div><strong>Username:</strong> <code>alex.sfa</code></div>
+                <div><strong>Password:</strong> <code>password123</code></div>
+                <div><strong>Factor Level:</strong> SFA (LoA 1 / Password)</div>
+                <div><strong>Expected AMR:</strong> <code>["pwd"]</code></div>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%', borderColor: 'success.main', borderWidth: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} color="success.main">
+                  2. PFA: TOTP MFA User
+                </Typography>
+                <Chip label="morgan.pfa" size="small" color="success" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Protected factor with Authenticator OTP requirement (LoA 2).
+              </Typography>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.03)', fontSize: '0.78rem' }}>
+                <div><strong>Username:</strong> <code>morgan.pfa</code></div>
+                <div><strong>Password:</strong> <code>password123</code></div>
+                <div><strong>Required Action:</strong> Configure TOTP App</div>
+                <div><strong>Expected AMR:</strong> <code>["pwd", "otp"]</code></div>
+              </Box>
+            </Paper>
+          </Grid>
+
+          <Grid item xs={12} md={4}>
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, height: '100%', borderColor: 'info.main', borderWidth: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} color="info.main">
+                  3. PFA: Passkey / WebAuthn User
+                </Typography>
+                <Chip label="sam.webauthn" size="small" color="info" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 700 }} />
+              </Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                Phishing-resistant authentication via FIDO2 / TouchID / Security Key.
+              </Typography>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: theme.palette.mode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.03)', fontSize: '0.78rem' }}>
+                <div><strong>Username:</strong> <code>sam.webauthn</code></div>
+                <div><strong>Password:</strong> <code>password123</code></div>
+                <div><strong>Required Action:</strong> Register WebAuthn / Passkey</div>
+                <div><strong>Expected AMR:</strong> <code>["webauthn"]</code></div>
+              </Box>
             </Paper>
           </Grid>
         </Grid>
@@ -251,7 +323,8 @@ export const SetupGuideView = () => {
           </Typography>
           <Typography variant="body2" color="text.secondary">
             • <strong>SFA (Single Factor):</strong> Keycloak's default Browser flow asks for Username + Password and yields claim <code>amr: ["pwd"]</code>.<br />
-            • <strong>PFA (Step-Up / MFA):</strong> Duplicate Browser flow, add <strong>Conditional OTP</strong> execution, and set Realm LoA Level 2 to require OTP or WebAuthn.
+            • <strong>PFA (Step-Up / MFA):</strong> Duplicate Browser flow, add <strong>Conditional OTP</strong> execution, and set Realm LoA Level 2 to require OTP.<br />
+            • <strong>PFA (Passkey / WebAuthn):</strong> WebAuthn Passwordless Authenticator flow for phishing-resistant factor yields claim <code>amr: ["webauthn"]</code>.
           </Typography>
         </Paper>
       </Box>

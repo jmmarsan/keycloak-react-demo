@@ -463,6 +463,10 @@ export const AuthFlowScreen = ({
                 }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Test User:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="warning.main">alex.sfa</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Factor:</Typography>
                   <Typography variant="caption" fontWeight={600}>Password Only</Typography>
                 </Box>
@@ -491,7 +495,7 @@ export const AuthFlowScreen = ({
                   })
                 }
               >
-                Launch SFA Login (PKCE)
+                Launch SFA Login (alex.sfa)
               </Button>
             </CardActions>
           </Card>
@@ -549,6 +553,10 @@ export const AuthFlowScreen = ({
                 }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Test User:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="info.main">sam.webauthn</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Factor:</Typography>
                   <Typography variant="caption" fontWeight={600}>FIDO2 Passkey</Typography>
                 </Box>
@@ -577,7 +585,7 @@ export const AuthFlowScreen = ({
                   })
                 }
               >
-                Launch WebAuthn Flow (PKCE)
+                Launch WebAuthn Flow (sam.webauthn)
               </Button>
             </CardActions>
           </Card>
@@ -635,6 +643,10 @@ export const AuthFlowScreen = ({
                 }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">Test User:</Typography>
+                  <Typography variant="caption" fontFamily="monospace" fontWeight={700} color="success.main">morgan.pfa</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">Factor:</Typography>
                   <Typography variant="caption" fontWeight={600}>Password + TOTP</Typography>
                 </Box>
@@ -663,7 +675,7 @@ export const AuthFlowScreen = ({
                   })
                 }
               >
-                Launch Step-Up Flow (PKCE)
+                Launch Step-Up Flow (morgan.pfa)
               </Button>
             </CardActions>
           </Card>
